@@ -147,7 +147,7 @@
     const formatDateKey = (d)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     const parseDateKey = (s)=> new Date(s+'T00:00:00');
     const monthNameShort = (m)=> ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][m];
-    const monthNameLong = (m)=> ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Novembre','Décembre'][m];
+    const monthNameLong = (m)=> ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'][m];
 
     const isHabitActiveOn = (h, dateKey)=>{ const d = parseDateKey(dateKey); const start = new Date(h.startDate+'T00:00:00'); if(d < start) return false; if(h.deletedAt && d >= new Date(h.deletedAt+'T00:00:00')) return false; return true; };
 
@@ -178,8 +178,8 @@
     function applyDayCellStyle(btn, dk){ // léger + gold si toutes les habitudes du jour sont au record
       const actives = data.habits.filter(h=>isHabitActiveOn(h,dk));
       const allGold = actives.length>0 && actives.every(h=>{ const cur=computeStreakForHabit(h.name, dk); const best=Math.max(h.bestStreak||0, computeBestStreakCached(h.name)); const doneToday=!!(data.completions[dk] && data.completions[dk][h.name]); return doneToday && cur>=best; });
-      if(allGold){ btn.style.background='linear-gradient(135deg, var(--gold), var(--gold-deep))'; btn.classList.add('gold'); }
-      else { const rate=getCompletionRate(dk); btn.style.background=''; btn.classList.remove('gold'); btn.style.backgroundColor=`rgba(0,255,100,${rate})`; }
+      if(allGold){ btn.style.background='linear-gradient(135deg, var(--gold), var(--gold-deep))'; btn.classList.add('gold'); btn.style.color = '#0a0a0a'; }
+      else { const rate=getCompletionRate(dk); btn.style.background=''; btn.classList.remove('gold'); btn.style.backgroundColor=`rgba(0,255,100,${rate})`; btn.style.color = rate > 0.5 ? '#0a0a0a' : ''; }
     }
 
     function updateDayCell(dk){ const el = document.querySelector(`button.day-cell[data-date-key="${dk}"]`); if(el) applyDayCellStyle(el, dk); }
@@ -256,14 +256,15 @@
 
     // ===== Firestore bootstrap =====
     let app, db, docRef, unsub;
-    async function initFirestore(){ app = initializeApp(firebaseConfig); db=getFirestore(app); try{ await enableIndexedDbPersistence(db);}catch(e){} docRef=doc(db,'single','fourpill'); unsub=onSnapshot(docRef,(snap)=>{ syncBadge.textContent='Connecté'; syncBadge.className='text-[11px] px-2 py-1 rounded border border-white/10 bg-white/5'; if(snap.exists()){ const server=snap.data(); if(server._rev && server._rev===lastLocalRev){ return; } data = server; clearAllCaches(); } else { data={habits:[],completions:{}, _rev:0}; setDoc(docRef,data).catch(console.error); } if(!initialSynced){ renderYears(); router(); initialSynced=true; } else { // mise à jour légère : rafraîchir juste le jour focus
-          if(focusedDateKey) updateDayCell(focusedDateKey); }
+    async function initFirestore(){ app = initializeApp(firebaseConfig); db=getFirestore(app); try{ await enableIndexedDbPersistence(db);}catch(e){} docRef=doc(db,'single','fourpill'); unsub=onSnapshot(docRef,(snap)=>{ syncBadge.textContent='Connecté'; syncBadge.className='text-[11px] px-2 py-1 rounded border border-white/10 bg-white/5'; if(snap.exists()){ const server=snap.data(); if(server._rev && server._rev===lastLocalRev){ return; } data = server; clearAllCaches(); } else {
+          // Le document n'existe pas encore : on initialise une base vide côté serveur
+          data={habits:[],completions:{}, _rev:0}; setDoc(docRef,data).catch(console.error);
+        }
+        if(!initialSynced){ renderYears(); router(); focusCurrent(); initialSynced=true; } else { if(focusedDateKey) updateDayCell(focusedDateKey); }
       }, (err)=>{ syncBadge.textContent='Hors ligne'; syncBadge.className='text-[11px] px-2 py-1 rounded border border-white/10'; console.error('onSnapshot error',err); }); }
 
-    // Kickoff
-    renderYears(); router(); focusCurrent();
-    initFirebase();
-    async function initFirebase(){ await initFirestore(); if(data.habits.length===0){ data.habits=[{name:"Prière à l'heure",startDate:formatDateKey(new Date(currentYear,0,1)), bestStreak:0}]; await persistDebounced(0); renderYears(); router(); } }
+    // Kickoff — IMPORTANT: pas d'écriture avant le 1er snapshot pour éviter d'écraser la DB
+    (async function initApp(){ await initFirestore(); })();
 
     // Dev tests (rapides)
     (function dev(){ try{ const tmpRate = monthRate({name:'_tmp', startDate: formatDateKey(new Date(currentYear,0,1))}, currentYear, 0); console.assert(typeof tmpRate==='number'); }catch(e){ console.warn('Tests warn',e);} })();
