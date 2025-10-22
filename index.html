@@ -36,7 +36,6 @@
         <button id="importBtn" class="text-sm px-3 py-1 rounded hover:bg-white/5">Importer</button>
         <button id="exportBtn" class="text-sm px-3 py-1 rounded hover:bg-white/5">Exporter</button>
         <button id="addHabitBtn" class="text-sm bg-white/10 px-3 py-1 rounded hover:bg-white/15">+ Habitude</button>
-        <!-- Statut retiré: le badge Connecté/Hors ligne a été supprimé -->
       </div>
     </div>
   </header>
@@ -55,7 +54,8 @@
     <div id="habitsList" class="space-y-3 max-h-72 overflow-auto pb-2"></div>
   </div>
 
-  <section id="dayPage" class="hidden pt-20 pb-24 max-w-2xl mx-auto px-4">
+  <!-- DAY PAGE: boutons larges (80%) collés en bas pour usage à une main -->
+  <section id="dayPage" class="hidden pt-20 pb-28 max-w-2xl mx-auto px-4 min-h-screen flex flex-col">
     <div class="grid grid-cols-3 items-center mb-4">
       <div class="flex justify-start"><button id="prevDay" class="px-3 py-1 rounded hover:bg-white/5">◀</button></div>
       <div class="text-center">
@@ -67,7 +67,8 @@
         <button id="nextDay" class="px-3 py-1 rounded hover:bg-white/5">▶</button>
       </div>
     </div>
-    <div id="dayHabitsList" class="space-y-3 flex flex-col items-center"></div>
+    <!-- La liste est poussée en bas grâce à mt-auto -->
+    <div id="dayHabitsList" class="mt-auto mb-6 space-y-3 flex flex-col items-center"></div>
   </section>
 
   <!-- Modal: Add Habit -->
@@ -203,7 +204,6 @@
       if(!yEl) return;
       const monthBtn=yEl.querySelector(`button.font-semibold[data-year="${currentYear}"][data-month="${currentMonth}"]`);
       if(monthBtn){
-        // deux rafraîchissements pour être sûr que le layout est prêt
         requestAnimationFrame(()=>{
           monthBtn.scrollIntoView({block:'center', behavior:'smooth'});
         });
@@ -222,7 +222,14 @@
 
     function makeHabitToggleButton(h, dateKey, onChanged){
       const done = !!(data.completions[dateKey] && data.completions[dateKey][h.name]);
-      const btn = document.createElement('button'); btn.type='button'; btn.setAttribute('aria-pressed', done ? 'true' : 'false'); btn.className=[ 'px-4 py-2 rounded-xl border transition','text-sm font-semibold', done ? 'bg-blue-500/30 border-blue-400/40 ring-1 ring-blue-300/30' : 'bg-white/5 border-white/10 hover:bg-white/10' ].join(' ');
+      const btn = document.createElement('button'); btn.type='button'; btn.setAttribute('aria-pressed', done ? 'true' : 'false');
+      btn.className=[
+        // largeur 80% sur mobile, auto sur sm+
+        'w-4/5','sm:w-auto',
+        // style
+        'px-4','py-3','rounded-xl','border','transition','text-sm','font-semibold',
+        done ? 'bg-blue-500/30 border-blue-400/40 ring-1 ring-blue-300/30' : 'bg-white/5 border-white/10 hover:bg-white/10'
+      ].join(' ');
       btn.textContent=h.name;
       btn.onclick = async ()=>{
         if(!data.completions[dateKey]) data.completions[dateKey] = {}; data.completions[dateKey][h.name] = !done;
@@ -244,7 +251,20 @@
       actives.forEach(h=>{ const row=document.createElement('div'); row.className='flex items-center justify-between gap-2'; const left=document.createElement('div'); left.className='flex items-center gap-3'; const toggleBtn=makeHabitToggleButton(h, dateKey, rerenderSelf); left.append(toggleBtn); row.append(left); const right=document.createElement('div'); right.className='flex items-center gap-2'; const curLabel=computeStreakForHabit(h.name, dateKey); const bestLabel=Math.max(h.bestStreak||0, computeBestStreakCached(h.name)); const badge=makeStreakBadge(curLabel, bestLabel, curLabel>=bestLabel); const edit=document.createElement('button'); edit.className='text-xs px-2 py-1 rounded hover:bg-white/5'; edit.textContent='✏️'; edit.onclick=async()=>{ const newName=prompt('Nouveau nom pour '+h.name,h.name); if(newName&&newName.trim()!==h.name){ const oldName=h.name; h.name=newName.trim(); for(const k in data.completions){ if(data.completions[k] && Object.prototype.hasOwnProperty.call(data.completions[k], oldName)){ data.completions[k][h.name]=data.completions[k][oldName]; delete data.completions[k][oldName]; } } clearHabitCaches(oldName); clearHabitCaches(h.name); await persistDebounced(0); rerenderSelf(); } }; const del=document.createElement('button'); del.className='text-xs px-2 py-1 rounded hover:bg-white/5'; del.textContent='🗑️'; del.onclick=async()=>{ h.deletedAt=new Date().toISOString().slice(0,10); clearHabitCaches(h.name); await persistDebounced(0); rerenderSelf(); updateDayCell(dateKey); }; right.append(badge,edit,del); row.append(right); container.append(row); });
     }
 
-    function showDayPage(dateKey){ homePage.classList.add('hidden'); dayPage.classList.remove('hidden'); const d=parseDateKey(dateKey); dayTitle.textContent=d.toLocaleDateString('fr-FR',{weekday:'long', day:'numeric', month:'long'}); dayTitleSub.textContent=dateKey; dayHabitsList.className='space-y-3 flex flex-col items-center'; populateHabits(dateKey, dayHabitsList, true); focusedDateKey=dateKey; document.getElementById('prevDay').onclick=()=>{ const p=new Date(d); p.setDate(p.getDate()-1); showDayPage(formatDateKey(p)); }; document.getElementById('nextDay').onclick=()=>{ const n=new Date(d); n.setDate(n.getDate()+1); showDayPage(formatDateKey(n)); }; document.getElementById('todayBtn').onclick=()=>{ const t=new Date(); showDayPage(formatDateKey(t)); }; window.location.hash = `#/day/${dateKey}`; }
+    function showDayPage(dateKey){
+      homePage.classList.add('hidden'); dayPage.classList.remove('hidden');
+      const d=parseDateKey(dateKey);
+      dayTitle.textContent=d.toLocaleDateString('fr-FR',{weekday:'long', day:'numeric', month:'long'});
+      dayTitleSub.textContent=dateKey;
+      // Liste au bas de la page pour usage à une main
+      dayHabitsList.className='mt-auto mb-6 space-y-3 flex flex-col items-center';
+      populateHabits(dateKey, dayHabitsList, true);
+      focusedDateKey=dateKey;
+      document.getElementById('prevDay').onclick=()=>{ const p=new Date(d); p.setDate(p.getDate()-1); showDayPage(formatDateKey(p)); };
+      document.getElementById('nextDay').onclick=()=>{ const n=new Date(d); n.setDate(n.getDate()+1); showDayPage(formatDateKey(n)); };
+      document.getElementById('todayBtn').onclick=()=>{ const t=new Date(); showDayPage(formatDateKey(t)); };
+      window.location.hash = `#/day/${dateKey}`;
+    }
 
     // Toggling Home <-> Day via "Fourpill"
     appTitle.onclick = ()=>{ const hash=window.location.hash||''; if(hash.startsWith('#/day')){ goHome(); } else { showDayPage(focusedDateKey || formatDateKey(new Date())); } };
