@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>HBTRKR</title>
+  <title>HBTRK</title>
   <link rel="icon" href="ico.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -557,69 +557,107 @@
     const addHabitBtnEl = document.getElementById('addHabitBtn');
 
 
-function updateAuthUI(){
-  if(user){
-    // --- Afficher le header quand on est connecté ---
-    headerEl.classList.remove('hidden');
+    function updateAuthUI(){
+      if(user){
+        // --- Afficher le header quand on est connecté ---
+        headerEl.classList.remove('hidden');
 
-    // Header: badge + infos
-    userBadge.classList.remove('hidden'); 
-    userBadge.classList.add('flex');
-    userAvatar.src = user.photoURL || '';
-    userAvatar.alt = user.displayName || '';
-    userName.textContent = user.displayName || user.email || 'Connecté';
-    authBtn.textContent = 'Se déconnecter';
+        // Header: badge + infos
+        userBadge.classList.remove('hidden'); 
+        userBadge.classList.add('flex');
+        userAvatar.src = user.photoURL || '';
+        userAvatar.alt = user.displayName || '';
+        userName.textContent = user.displayName || user.email || 'Connecté';
+        authBtn.textContent = 'Se déconnecter';
 
-    // Boutons du header visibles
-    importBtnEl.classList.remove('hidden');
-    exportBtnEl.classList.remove('hidden');
-    addHabitBtnEl.classList.remove('hidden');
+        // Boutons du header visibles
+        importBtnEl.classList.remove('hidden');
+        exportBtnEl.classList.remove('hidden');
+        addHabitBtnEl.classList.remove('hidden');
 
-    // Cacher la page "déconnecté" et rétablir son padding pour le header
-    loggedOut.classList.add('hidden');
-    loggedOut.classList.remove('pt-0');
-    loggedOut.classList.add('pt-20');
+        // Cacher la page "déconnecté" et rétablir son padding pour le header
+        loggedOut.classList.add('hidden');
+        loggedOut.classList.remove('pt-0');
+        loggedOut.classList.add('pt-20');
 
-    // Afficher l'app
-    homePage.classList.remove('hidden');
-    // Le router décidera home/day
-  } else {
-    // --- Cacher le header quand on est déconnecté ---
-    headerEl.classList.add('hidden');
+        // Afficher l'app
+        homePage.classList.remove('hidden');
+        // Le router décidera home/day
+      } else {
+        // --- Cacher le header quand on est déconnecté ---
+        headerEl.classList.add('hidden');
 
-    // Header: masquer badge et vider infos
-    userBadge.classList.add('hidden'); 
-    userBadge.classList.remove('flex');
-    userAvatar.src = ''; 
-    userAvatar.alt = ''; 
-    userName.textContent = '';
-    authBtn.textContent = 'Se connecter';
+        // Header: masquer badge et vider infos
+        userBadge.classList.add('hidden'); 
+        userBadge.classList.remove('flex');
+        userAvatar.src = ''; 
+        userAvatar.alt = ''; 
+        userName.textContent = '';
+        authBtn.textContent = 'Se connecter';
 
-    // Cacher les boutons inutiles (sécurité UI)
-    importBtnEl.classList.add('hidden');
-    exportBtnEl.classList.add('hidden');
-    addHabitBtnEl.classList.add('hidden');
+        // Cacher les boutons inutiles (sécurité UI)
+        importBtnEl.classList.add('hidden');
+        exportBtnEl.classList.add('hidden');
+        addHabitBtnEl.classList.add('hidden');
 
-    // Afficher la page "déconnecté" en plein écran (sans padding top du header)
-    loggedOut.classList.remove('hidden');
-    loggedOut.classList.remove('pt-20');
-    loggedOut.classList.add('pt-0');
+        // Afficher la page "déconnecté" en plein écran (sans padding top du header)
+        loggedOut.classList.remove('hidden');
+        loggedOut.classList.remove('pt-20');
+        loggedOut.classList.add('pt-0');
 
-    // Cacher l'app
-    homePage.classList.add('hidden');
-    dayPage.classList.add('hidden');
-    dayPanel.classList.add('hidden');
-  }
-}
-
-
+        // Cacher l'app
+        homePage.classList.add('hidden');
+        dayPage.classList.add('hidden');
+        dayPanel.classList.add('hidden');
+      }
+    }
 
     async function signInGoogle(){
       if(!auth) return;
       await setPersistence(auth, browserLocalPersistence);
-      const cred = await signInWithPopup(auth, provider);
-      return cred.user;
+
+      // Détecte l'app Median (WebView)
+      const isMedian = typeof window !== 'undefined'
+        && window.Median && window.Median.socialLogin
+        && typeof window.Median.socialLogin.googleSignIn === 'function';
+
+      if(isMedian){
+        try{
+          // ⚠️ Utilise le plugin natif Median (PAS de popup/redirect)
+          const result = await window.Median.socialLogin.googleSignIn();
+          if(!result || !result.idToken){
+            throw new Error('Google native login: idToken manquant');
+          }
+
+          // Option debug utile pour vérifier que l’audience = Web Client ID du bon projet
+          try {
+            const payload = JSON.parse(atob(result.idToken.split('.')[1]));
+            console.log('Native Google aud =', payload.aud);
+          } catch {}
+
+          // Connexion Firebase avec le token natif
+          const cred = GoogleAuthProvider.credential(result.idToken);
+          const userCred = await signInWithCredential(auth, cred);
+          return userCred.user;
+        } catch (e){
+          console.error('Median native Google Sign-In failed', e);
+          alert('Erreur d’authentification (natif). Vérifie la config Median + Web Client ID.');
+          throw e;
+        }
+      }
+
+      // Navigateur “classique” → flux web OK
+      try{
+        const provider = new GoogleAuthProvider();
+        const cred = await signInWithPopup(auth, provider);
+        return cred.user;
+      } catch(e){
+        console.error('Web popup Sign-In failed', e?.code, e?.message);
+        alert('Connexion Google impossible dans ce navigateur.');
+        throw e;
+      }
     }
+
 
     async function signOutGoogle(){
       if(!auth) return;
