@@ -152,9 +152,16 @@
       getFirestore, doc, onSnapshot, setDoc, enableIndexedDbPersistence
     } from 'https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js';
     import {
-      getAuth, GoogleAuthProvider, signInWithPopup, signOut,
-      onAuthStateChanged, setPersistence, browserLocalPersistence
+      getAuth,
+      GoogleAuthProvider,
+      signInWithPopup,
+      signInWithCredential,
+      signOut,
+      onAuthStateChanged,
+      setPersistence,
+      browserLocalPersistence
     } from 'https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js';
+
 
     const firebaseConfig = { apiKey: "AIzaSyBptpMFEMc7ikXM0PtDOeWUHnMegKQ6hcs", authDomain: "habit-8d57f.firebaseapp.com", projectId: "habit-8d57f", storageBucket: "habit-8d57f.appspot.com", messagingSenderId: "934416417831", appId: "1:934416417831:web:63f2f0554daa6d3ff23a02" };
     // --- Auth & Firestore state ---
@@ -616,52 +623,64 @@
       if(!auth) return;
       await setPersistence(auth, browserLocalPersistence);
 
-      // Détection robuste Median + plugin Social Login
-      const hasMedian = typeof window !== 'undefined' && window.Median;
-      const hasNativeGoogle = !!(hasMedian && window.Median.socialLogin && typeof window.Median.socialLogin.googleSignIn === 'function');
+      // Détection Median
+      const inMedian = typeof window !== 'undefined' && !!window.Median;
+      const hasNativeGoogle =
+        inMedian &&
+        window.Median.socialLogin &&
+        typeof window.Median.socialLogin.googleSignIn === 'function';
 
-      // Heuristique WebView Android (au cas où le bridge n'est pas dispo)
-      const isAndroidWV = /Android/i.test(navigator.userAgent) && /\b; wv\)\b/.test(navigator.userAgent);
+      // Logs utiles pour debug
+      try {
+        console.log('[LOGIN] UA=', navigator.userAgent);
+        console.log('[LOGIN] inMedian=', inMedian, 'hasNativeGoogle=', hasNativeGoogle);
+      } catch {}
 
-      if (hasNativeGoogle || isAndroidWV) {
+      // ⚠️ Si on est dans l'app Median, on INTERDIT le flux web.
+      // On exige le plugin natif, sinon on alerte (et on ne tombera pas sur signInWithPopup).
+      if (inMedian) {
+        if (!hasNativeGoogle) {
+          alert(
+            "Le login Google natif n'est pas disponible dans l'app.\n" +
+            "Active le plugin 'Social Login' → Google Sign-In dans Median,\n" +
+            "renseigne le Web Client ID du même projet Firebase, puis rebuild l’APK."
+          );
+          throw new Error('Missing Median.socialLogin.googleSignIn');
+        }
+
+        // ✅ Flux NATIF Median
         try {
-          // 1) Flux NATIF Median (pas de popup ni redirect web)
-          const result = hasNativeGoogle
-            ? await window.Median.socialLogin.googleSignIn()
-            : null;
+          const result = await window.Median.socialLogin.googleSignIn();
+          if(!result || !result.idToken) throw new Error('Google native login: idToken manquant');
 
-          if (!result || !result.idToken) {
-            throw new Error('Google native login: idToken manquant (plugin non chargé ?)');
-          }
-
-          // Debug: vérifier l’audience du token (doit === Web Client ID du projet Firebase habit-8d57f)
+          // (Debug) vérifier que l’audience = Web Client ID collé dans Median
           try {
             const payload = JSON.parse(atob(result.idToken.split('.')[1]));
-            console.log('Native Google aud =', payload.aud);
+            console.log('[LOGIN] native token aud =', payload.aud);
           } catch {}
 
-          // 2) Connexion Firebase avec le token natif
           const cred = GoogleAuthProvider.credential(result.idToken);
           const userCred = await signInWithCredential(auth, cred);
           return userCred.user;
         } catch (e){
-          console.error('Median native Google Sign-In failed', e);
-          alert('Erreur d’authentification (flux natif). Vérifie le Web Client ID dans Median puis rebuild l’APK.');
+          console.error('[LOGIN] native failed', e);
+          alert("Erreur d’authentification (natif). Vérifie le 'Web Client ID (Used for Android)' dans Median (projet Firebase habit-8d57f), puis rebuild l’APK.");
           throw e;
         }
       }
 
-      // 3) Navigateur “classique” (pas WebView) → flux web OK
+      // 🌐 Navigateur classique (web) → flux web OK
       try{
         const provider = new GoogleAuthProvider();
         const cred = await signInWithPopup(auth, provider);
         return cred.user;
       } catch(e){
-        console.error('Web popup Sign-In failed', e?.code, e?.message);
+        console.error('[LOGIN] web popup failed', e?.code, e?.message);
         alert('Connexion Google impossible dans ce navigateur.');
         throw e;
       }
     }
+
 
 
 
