@@ -42,6 +42,8 @@
         <button id="importBtn" class="text-sm px-3 py-1 rounded-full hover:bg-white/5">Importer</button>
         <button id="exportBtn" class="text-sm px-3 py-1 rounded-full hover:bg-white/5">Exporter</button>
         <button id="addHabitBtn" class="text-sm bg-white/10 px-3 py-1 rounded-full hover:bg-white/15">+ Habitude</button>
+        <button id="logoutBtn" class="hidden text-sm px-3 py-1 rounded-full hover:bg-white/5">Se déconnecter</button>
+
       </div>
     </div>
   </header>
@@ -125,9 +127,42 @@
 
   <input id="fileInput" type="file" accept="application/json" class="hidden" />
 
+  <!-- Modale Auth (plein écran, bloque l'UI) -->
+  <div id="authModal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/60">
+    <div class="glass w-full max-w-sm mx-4 rounded-2xl p-5 shadow-2xl">
+      <h2 class="text-xl font-extrabold mb-3 text-center">Connexion</h2>
+      <p class="text-xs text-white/60 mb-4 text-center">Connecte-toi pour accéder à tes données.</p>
+
+      <div class="space-y-2">
+        <input id="authEmail" type="email" autocomplete="email"
+              class="w-full py-2 px-4 rounded-full bg-white/10 border border-white/10"
+              placeholder="Email">
+        <input id="authPassword" type="password" autocomplete="current-password"
+              class="w-full py-2 px-4 rounded-full bg-white/10 border border-white/10"
+              placeholder="Mot de passe">
+      </div>
+
+      <div id="authError" class="text-xs text-red-300 mt-2 min-h-[1rem]"></div>
+
+      <div class="flex justify-between items-center mt-4">
+        <button id="authCreate"
+                class="text-sm px-3 py-1 rounded-full hover:bg-white/5">Créer un compte</button>
+        <button id="authSubmit"
+                class="text-sm px-4 py-1 rounded-full bg-white/10 hover:bg-white/15">Se connecter</button>
+      </div>
+    </div>
+  </div>
+
+
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js';
     import { getFirestore, doc, onSnapshot, setDoc, enableIndexedDbPersistence } from 'https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js';
+    import {
+      getAuth, onAuthStateChanged,
+      setPersistence, browserLocalPersistence,
+      signInWithEmailAndPassword, createUserWithEmailAndPassword,
+      signOut
+    } from 'https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js';
 
     const firebaseConfig = { apiKey: "AIzaSyBptpMFEMc7ikXM0PtDOeWUHnMegKQ6hcs", authDomain: "habit-8d57f.firebaseapp.com", projectId: "habit-8d57f", storageBucket: "habit-8d57f.appspot.com", messagingSenderId: "934416417831", appId: "1:934416417831:web:63f2f0554daa6d3ff23a02" };
 
@@ -174,6 +209,21 @@
     const isHabitActiveOn = (h, dateKey)=>{ const d = parseDateKey(dateKey); const start = new Date(h.startDate+'T00:00:00'); if(d < start) return false; if(h.deletedAt && d >= new Date(h.deletedAt+'T00:00:00')) return false; return true; };
 
     const getCompletionRate = (dateKey)=>{ const dayData = data.completions[dateKey] || {}; const activeHabits = data.habits.filter(h=>isHabitActiveOn(h,dateKey)); if(activeHabits.length===0) return 0; const completed = activeHabits.filter(h=>dayData[h.name]).length; return completed / activeHabits.length; };
+
+    const headerEl   = document.querySelector('header');
+    const hideAppForAuth = (hide) => {
+      const method = hide ? 'add' : 'remove';
+      headerEl.classList[method]('hidden');
+      homePage.classList[method]('hidden');
+      dayPage.classList[method]('hidden');
+      dayPanel.classList[method]('hidden');
+      dayOverlay.classList[method]('hidden');
+      // On ferme les autres modales si besoin
+      modalAddHabit.classList.add('hidden'); modalAddHabit.classList.remove('flex');
+      monthModal.classList.add('hidden');    monthModal.classList.remove('flex');
+      yearModal.classList.add('hidden');     yearModal.classList.remove('flex');
+    };
+
 
     function computeStreakForHabit(habitName, asOfDateKey){
       let d = parseDateKey(asOfDateKey); let streak = 0; const habit = data.habits.find(h=>h.name===habitName); if(!habit) return 0;
@@ -495,20 +545,138 @@
     bindOverlayClose(monthModal, ()=>{ monthModal.classList.add('hidden'); monthModal.classList.remove('flex'); });
     bindOverlayClose(yearModal, ()=>{ yearModal.classList.add('hidden'); yearModal.classList.remove('flex'); });
 
-    // Firestore
-    let app, db, docRef, unsub;
-    async function initFirestore(){ app = initializeApp(firebaseConfig); db=getFirestore(app); try{ await enableIndexedDbPersistence(db);}catch(e){} docRef=doc(db,'single','fourpill'); unsub=onSnapshot(docRef,(snap)=>{
-        if(snap.exists()){
-          const server=snap.data();
-          if(server._rev && server._rev===lastLocalRev){ return; }
-          data = server; clearAllCaches();
-        } else {
-          data={habits:[],completions:{}, _rev:0}; setDoc(docRef,data).catch(console.error);
-        }
-        if(!initialSynced){ renderYears(); router(); focusCurrentMonth(); initialSynced=true; } else { if(focusedDateKey) updateDayCell(focusedDateKey); }
-      }, (err)=>{ console.error('onSnapshot error',err); }); }
+// === Firebase App + Firestore + Auth ===
+let app, db, docRef, unsubSnap, auth, currentUser;
 
-    (async function initApp(){ await initFirestore(); })();
+// On garde ta data locale et tes caches :
+/* data, lastLocalRev, initialSynced, caches ... déjà définis plus haut */
+
+// --- Affichage modale auth ---
+const authModal   = document.getElementById('authModal');
+const authEmail   = document.getElementById('authEmail');
+const authPass    = document.getElementById('authPassword');
+const authErrorEl = document.getElementById('authError');
+const authSubmit  = document.getElementById('authSubmit');
+const authCreate  = document.getElementById('authCreate');
+const logoutBtn   = document.getElementById('logoutBtn');
+
+const showAuthModal = () => { authModal.classList.remove('hidden'); authModal.classList.add('flex'); };
+const hideAuthModal = () => { authModal.classList.add('hidden'); authModal.classList.remove('flex'); };
+
+function setAuthedUI(authed){
+  if(authed){
+    // on montre l'app
+    hideAppForAuth(false);
+    hideAuthModal();
+    // boutons visibles une fois connecté
+    document.getElementById('importBtn').classList.remove('hidden');
+    document.getElementById('exportBtn').classList.remove('hidden');
+    document.getElementById('addHabitBtn').classList.remove('hidden');
+    logoutBtn.classList.remove('hidden');
+  } else {
+    // on cache tout sauf la modale d'auth
+    hideAppForAuth(true);
+    showAuthModal();
+    // masque les boutons
+    document.getElementById('importBtn').classList.add('hidden');
+    document.getElementById('exportBtn').classList.add('hidden');
+    document.getElementById('addHabitBtn').classList.add('hidden');
+    logoutBtn.classList.add('hidden');
+  }
+}
+
+  async function initFirebaseAll(){
+    app  = initializeApp(firebaseConfig);
+    db   = getFirestore(app);
+    auth = getAuth(app);
+
+    try{ await enableIndexedDbPersistence(db);}catch(e){}
+
+    // Persistance de session (onglet) / locale
+    await setPersistence(auth, browserLocalPersistence);
+
+    onAuthStateChanged(auth, async (user)=>{
+      currentUser = user || null;
+
+      // Nettoie l'ancien listener sur Firestore si on change d'utilisateur
+      if(unsubSnap) { try{unsubSnap();}catch(e){} unsubSnap = null; }
+
+      if(!currentUser){
+        // Pas connecté → bloque l'app derrière la modale
+        setAuthedUI(false);
+        return;
+      }
+
+      // Connecté → prépare le docRef par utilisateur
+      setAuthedUI(true);
+
+      docRef = doc(db, 'users', currentUser.uid, 'data', 'fourpill');
+
+      // Ecoute Firestore et hydrate l'UI
+      unsubSnap = onSnapshot(docRef, (snap)=>{
+        if(snap.exists()){
+          const server = snap.data();
+          // Ignore l'écho local (optimiste)
+          if(server._rev && server._rev === lastLocalRev){ return; }
+          data = server;
+          clearAllCaches();
+        } else {
+          // Première fois : créer la structure
+          data = { habits:[], completions:{}, _rev:0 };
+          setDoc(docRef, data).catch(console.error);
+        }
+
+        if(!initialSynced){
+          renderYears();
+          router();
+          focusCurrentMonth();
+          initialSynced = true;
+        } else {
+          if(focusedDateKey) updateDayCell(focusedDateKey);
+        }
+      }, (err)=>{ console.error('onSnapshot error', err); });
+    });
+
+    // Actions modale
+    authSubmit.onclick = async ()=>{
+      authErrorEl.textContent = '';
+      const email = (authEmail.value || '').trim();
+      const pass  = authPass.value || '';
+      if(!email || !pass){ authErrorEl.textContent = 'Email et mot de passe requis.'; return; }
+      try{
+        await signInWithEmailAndPassword(auth, email, pass);
+      } catch(e){
+        authErrorEl.textContent = (e && e.message) ? e.message : 'Erreur de connexion';
+      }
+    };
+
+    authCreate.onclick = async ()=>{
+      authErrorEl.textContent = '';
+      const email = (authEmail.value || '').trim();
+      const pass  = authPass.value || '';
+      if(!email || !pass){ authErrorEl.textContent = 'Email et mot de passe requis.'; return; }
+      try{
+        await createUserWithEmailAndPassword(auth, email, pass);
+        // À la création, on init le doc si besoin
+        const user = auth.currentUser;
+        const firstDoc = doc(db, 'users', user.uid, 'data', 'fourpill');
+        // Si tu veux migrer l'ancien doc "single/fourpill" au premier login, tu peux le faire ici.
+        await setDoc(firstDoc, { habits:[], completions:{}, _rev:0 }, { merge: true });
+      } catch(e){
+        authErrorEl.textContent = (e && e.message) ? e.message : 'Erreur de création';
+      }
+    };
+
+    logoutBtn.onclick = async ()=>{
+      try{ await signOut(auth); } catch(e){ console.error(e); }
+    };
+  }
+
+  // Remplace ton ancien init par :
+  (async function initApp(){
+    await initFirebaseAll();
+  })();
+
   </script>
 </body>
 </html>
