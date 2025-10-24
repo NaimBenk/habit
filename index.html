@@ -53,6 +53,21 @@
       </div>
     </div>
   </header>
+
+  <button id="medianTest" class="fixed bottom-3 right-3 px-3 py-2 rounded bg-white/10 border border-white/20">
+TEST BRIDGE
+</button>
+<script>
+document.getElementById('medianTest').onclick = async () => {
+  try {
+    const hasMedian = !!window.Median;
+    const hasNativeGoogle = !!(hasMedian && window.Median.socialLogin && typeof window.Median.socialLogin.googleSignIn === 'function');
+    alert('Median=' + hasMedian + ' | NativeGoogle=' + hasNativeGoogle);
+  } catch(e){ alert('err '+e); }
+};
+</script>
+
+
   <!-- Page "déconnecté" -->
   <section id="loggedOut" class="hidden pt-20 min-h-screen grid place-items-center px-4">
     <div class="glass rounded-2xl p-8 w-full max-w-md text-center shadow-2xl">
@@ -769,18 +784,21 @@
     })();
 
   </script>
-  <script>
-    (function(){
-      const badge = document.createElement('div');
-      badge.style.cssText = 'position:fixed;bottom:12px;left:12px;z-index:99999;padding:6px 10px;border-radius:999px;font:12px/1.2 system-ui;background:#0008;color:#fff;border:1px solid #fff2';
-      const inMedian = !!(window.Median);
-      const hasNative = !!(inMedian && window.Median.socialLogin && typeof window.Median.socialLogin.googleSignIn==='function');
-      badge.textContent = inMedian
-        ? (hasNative ? 'LOGIN MODE: MEDIAN NATIVE' : 'LOGIN MODE: MEDIAN (NO NATIVE)')
-        : 'LOGIN MODE: WEB';
-      document.body.appendChild(badge);
-    })();
-  </script>
+<script>
+(function(){
+  const badge = document.createElement('div');
+  badge.style.cssText='position:fixed;bottom:12px;left:12px;z-index:99999;padding:6px 10px;border-radius:999px;font:12px/1.2 system-ui;background:#0008;color:#fff;border:1px solid #fff2';
+  document.body.appendChild(badge);
+  const update=()=>{
+    const inMedian = !!window.Median;
+    const hasNative = !!(inMedian && window.Median.socialLogin && typeof window.Median.socialLogin.googleSignIn==='function');
+    badge.textContent = inMedian ? (hasNative ? 'LOGIN MODE: MEDIAN NATIVE' : 'LOGIN MODE: MEDIAN (NO NATIVE)') : 'LOGIN MODE: WEB';
+  };
+  update();
+  const t = setInterval(()=>{ update(); if(!!window.Median) clearInterval(t); }, 500);
+})();
+</script>
+
 
 </body>
 </html>
