@@ -34,17 +34,38 @@
 </head>
 <body class="antialiased min-h-screen">
   <header class="fixed top-0 left-0 right-0 z-40 backdrop-blur-md bg-gradient-to-b from-black/40 to-transparent border-b border-white/5">
-    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3 sm:flex-nowrap sm:gap-4">
+      <!-- Logo / titre -->
       <div class="flex items-center gap-2 sm:gap-4">
-        <button id="appTitle" class="text-lg  font-extrabold tracking-wide hover:opacity-80">HBTRKR</button>
+        <button id="appTitle" class="text-lg font-extrabold tracking-wide hover:opacity-80">HBTRKR</button>
       </div>
-      <div class="flex items-center gap-3">
+
+      <!-- Boutons et user badge -->
+      <div class="flex flex-wrap items-center gap-2 sm:gap-3 justify-end w-full sm:w-auto">
+        <div id="userBadge" class="hidden items-center gap-2 text-sm px-2 py-1 rounded-full bg-white/5 border border-white/10">
+          <img id="userAvatar" class="h-5 w-5 rounded-full object-cover" alt="">
+          <span id="userName" class="text-white/80"></span>
+        </div>
         <button id="importBtn" class="text-sm px-3 py-1 rounded-full hover:bg-white/5">Importer</button>
         <button id="exportBtn" class="text-sm px-3 py-1 rounded-full hover:bg-white/5">Exporter</button>
         <button id="addHabitBtn" class="text-sm bg-white/10 px-3 py-1 rounded-full hover:bg-white/15">+ Habitude</button>
+        <button id="authBtn" class="text-sm px-3 py-1 rounded-full bg-white/10 hover:bg-white/15">Se connecter</button>
       </div>
     </div>
   </header>
+  <!-- Page "déconnecté" -->
+  <section id="loggedOut" class="hidden pt-20 min-h-screen grid place-items-center px-4">
+    <div class="glass rounded-2xl p-8 w-full max-w-md text-center shadow-2xl">
+      <h1 class="text-3xl font-extrabold mb-2 tracking-tight">HBTRKR</h1>
+      <p class="text-white/70 mb-6">Connecte-toi pour synchroniser tes habitudes et tes progrès.</p>
+      <button id="authBtnBig"
+              class="w-full h-12 rounded-full font-semibold bg-white/10 hover:bg-white/15 border border-white/10 backdrop-blur active:scale-95 transition">
+        Se connecter
+      </button>
+    </div>
+  </section>
+
+
 
   <main id="homePage" class="pt-20 pb-24 max-w-5xl mx-auto px-4 space-y-10 overflow-auto" style="scroll-behavior: smooth;"></main>
 
@@ -127,9 +148,21 @@
 
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js';
-    import { getFirestore, doc, onSnapshot, setDoc, enableIndexedDbPersistence } from 'https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js';
+    import {
+      getFirestore, doc, onSnapshot, setDoc, enableIndexedDbPersistence
+    } from 'https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js';
+    import {
+      getAuth, GoogleAuthProvider, signInWithPopup, signOut,
+      onAuthStateChanged, setPersistence, browserLocalPersistence
+    } from 'https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js';
 
     const firebaseConfig = { apiKey: "AIzaSyBptpMFEMc7ikXM0PtDOeWUHnMegKQ6hcs", authDomain: "habit-8d57f.firebaseapp.com", projectId: "habit-8d57f", storageBucket: "habit-8d57f.appspot.com", messagingSenderId: "934416417831", appId: "1:934416417831:web:63f2f0554daa6d3ff23a02" };
+    // --- Auth & Firestore state ---
+
+    let app, db, auth, provider;
+    let user = null;
+    let docRef = null;     // Chemin Firestore spécifique à l'utilisateur
+    let unsub = null;      // Unsubscribe snapshot
 
     let data = { habits: [], completions: {}, _rev: 0 };
     let lastLocalRev = 0; let initialSynced = false;
@@ -248,7 +281,20 @@
     const clamp3 = (n)=>{ const s = String(Math.max(0, n|0)); return s.length>3 ? s.slice(0,3) : s; };
     const makeStreakBadge=(cur,best,isBestNow)=>{ const span=document.createElement('span'); span.className='streak-badge'+(isBestNow && cur>0 ? ' streak-badge--best':'' ); span.textContent=`${clamp3(cur)}/${clamp3(best)}`; span.title='Série actuelle / meilleur record'; return span; };
 
-    let persistTimer=null; const persistDebounced=(delay=250)=> new Promise(res=>{ clearTimeout(persistTimer); persistTimer=setTimeout(async()=>{ try{ data._rev=(data._rev||0)+1; lastLocalRev=data._rev; await setDoc(docRef, data); } finally { res(); } }, delay); });
+    let persistTimer=null;
+    const persistDebounced=(delay=250)=> new Promise(res=>{
+      clearTimeout(persistTimer);
+      persistTimer=setTimeout(async()=>{
+        try{
+          if(!docRef){ res(); return; } // pas connecté => pas d'écriture distante
+          data._rev=(data._rev||0)+1;
+          lastLocalRev=data._rev;
+          await setDoc(docRef, data);
+        } finally {
+          res();
+        }
+      }, delay);
+    });
 
     function makeHabitToggleButton(h, dateKey, onChanged, opts = {}) {
       const { isDayView = false } = opts;
@@ -495,20 +541,170 @@
     bindOverlayClose(monthModal, ()=>{ monthModal.classList.add('hidden'); monthModal.classList.remove('flex'); });
     bindOverlayClose(yearModal, ()=>{ yearModal.classList.add('hidden'); yearModal.classList.remove('flex'); });
 
-    // Firestore
-    let app, db, docRef, unsub;
-    async function initFirestore(){ app = initializeApp(firebaseConfig); db=getFirestore(app); try{ await enableIndexedDbPersistence(db);}catch(e){} docRef=doc(db,'single','fourpill'); unsub=onSnapshot(docRef,(snap)=>{
-        if(snap.exists()){
-          const server=snap.data();
-          if(server._rev && server._rev===lastLocalRev){ return; }
-          data = server; clearAllCaches();
-        } else {
-          data={habits:[],completions:{}, _rev:0}; setDoc(docRef,data).catch(console.error);
-        }
-        if(!initialSynced){ renderYears(); router(); focusCurrentMonth(); initialSynced=true; } else { if(focusedDateKey) updateDayCell(focusedDateKey); }
-      }, (err)=>{ console.error('onSnapshot error',err); }); }
+    // Firestore + user
+    // --- UI Auth helpers ---
+    const userBadge = document.getElementById('userBadge');
+    const userAvatar = document.getElementById('userAvatar');
+    const userName = document.getElementById('userName');
+    const authBtn = document.getElementById('authBtn');
+    const authBtnBig = document.getElementById('authBtnBig');
 
-    (async function initApp(){ await initFirestore(); })();
+    const loggedOut = document.getElementById('loggedOut');
+    const headerEl = document.querySelector('header');
+
+    const importBtnEl = document.getElementById('importBtn');
+    const exportBtnEl = document.getElementById('exportBtn');
+    const addHabitBtnEl = document.getElementById('addHabitBtn');
+
+
+function updateAuthUI(){
+  if(user){
+    // --- Afficher le header quand on est connecté ---
+    headerEl.classList.remove('hidden');
+
+    // Header: badge + infos
+    userBadge.classList.remove('hidden'); 
+    userBadge.classList.add('flex');
+    userAvatar.src = user.photoURL || '';
+    userAvatar.alt = user.displayName || '';
+    userName.textContent = user.displayName || user.email || 'Connecté';
+    authBtn.textContent = 'Se déconnecter';
+
+    // Boutons du header visibles
+    importBtnEl.classList.remove('hidden');
+    exportBtnEl.classList.remove('hidden');
+    addHabitBtnEl.classList.remove('hidden');
+
+    // Cacher la page "déconnecté" et rétablir son padding pour le header
+    loggedOut.classList.add('hidden');
+    loggedOut.classList.remove('pt-0');
+    loggedOut.classList.add('pt-20');
+
+    // Afficher l'app
+    homePage.classList.remove('hidden');
+    // Le router décidera home/day
+  } else {
+    // --- Cacher le header quand on est déconnecté ---
+    headerEl.classList.add('hidden');
+
+    // Header: masquer badge et vider infos
+    userBadge.classList.add('hidden'); 
+    userBadge.classList.remove('flex');
+    userAvatar.src = ''; 
+    userAvatar.alt = ''; 
+    userName.textContent = '';
+    authBtn.textContent = 'Se connecter';
+
+    // Cacher les boutons inutiles (sécurité UI)
+    importBtnEl.classList.add('hidden');
+    exportBtnEl.classList.add('hidden');
+    addHabitBtnEl.classList.add('hidden');
+
+    // Afficher la page "déconnecté" en plein écran (sans padding top du header)
+    loggedOut.classList.remove('hidden');
+    loggedOut.classList.remove('pt-20');
+    loggedOut.classList.add('pt-0');
+
+    // Cacher l'app
+    homePage.classList.add('hidden');
+    dayPage.classList.add('hidden');
+    dayPanel.classList.add('hidden');
+  }
+}
+
+
+
+    async function signInGoogle(){
+      if(!auth) return;
+      await setPersistence(auth, browserLocalPersistence);
+      const cred = await signInWithPopup(auth, provider);
+      return cred.user;
+    }
+
+    async function signOutGoogle(){
+      if(!auth) return;
+      await signOut(auth);
+    }
+
+    async function setupFirestoreForUser(){
+      // Stoppe l'ancien abonnement si présent
+      if(typeof unsub === 'function'){ try{ unsub(); }catch{} }
+      unsub = null;
+      docRef = null;
+
+      if(!user){
+        // Déconnecté : on montre l'écran "Se connecter"
+        initialSynced = false;
+        updateAuthUI();
+        return;
+      }
+
+      // Connecté : sélection du doc utilisateur
+      try{ await enableIndexedDbPersistence(db); }catch(e){}
+      docRef = doc(db, 'users', user.uid, 'apps', 'fourpill');
+
+      unsub = onSnapshot(docRef, (snap)=>{
+        if(snap.exists()){
+          const server = snap.data();
+          if(server._rev && server._rev === lastLocalRev){ return; }
+          data = server;
+          clearAllCaches();
+        } else {
+          data = { habits:[], completions:{}, _rev:0 };
+          setDoc(docRef, data).catch(console.error);
+        }
+        if(!initialSynced){
+          renderYears();
+          router();
+          focusCurrentMonth();
+          initialSynced = true;
+        } else {
+          if(focusedDateKey) updateDayCell(focusedDateKey);
+        }
+      }, (err)=>{ console.error('onSnapshot error',err); });
+    }
+
+
+async function initFirebaseAndAuth(){
+  app = initializeApp(firebaseConfig);
+  db = getFirestore(app);
+  auth = getAuth(app);
+  provider = new GoogleAuthProvider();
+
+  onAuthStateChanged(auth, async (u) => {
+    user = u || null;
+    updateAuthUI();
+    await setupFirestoreForUser();
+
+    // 🔄 Auto-reset local en cas de déconnexion
+    if (!u) {
+      data = { habits: [], completions: {}, _rev: 0 };
+      clearAllCaches();
+    }
+  });
+
+  // Boutons d'auth (header + grand bouton page déconnectée)
+  authBtn.onclick = async ()=>{
+    try{
+      if(user){ await signOutGoogle(); }
+      else { await signInGoogle(); }
+    }catch(e){ console.error(e); alert('Erreur d’authentification'); }
+  };
+
+  if (authBtnBig) {
+    authBtnBig.onclick = async ()=>{
+      try{ await signInGoogle(); }
+      catch(e){ console.error(e); alert('Erreur d’authentification'); }
+    };
+  }
+}
+
+
+
+    (async function initApp(){
+      await initFirebaseAndAuth();
+    })();
+
   </script>
 </body>
 </html>
