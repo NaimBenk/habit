@@ -616,37 +616,42 @@
       if(!auth) return;
       await setPersistence(auth, browserLocalPersistence);
 
-      // Détecte l'app Median (WebView)
-      const isMedian = typeof window !== 'undefined'
-        && window.Median && window.Median.socialLogin
-        && typeof window.Median.socialLogin.googleSignIn === 'function';
+      // Détection robuste Median + plugin Social Login
+      const hasMedian = typeof window !== 'undefined' && window.Median;
+      const hasNativeGoogle = !!(hasMedian && window.Median.socialLogin && typeof window.Median.socialLogin.googleSignIn === 'function');
 
-      if(isMedian){
-        try{
-          // ⚠️ Utilise le plugin natif Median (PAS de popup/redirect)
-          const result = await window.Median.socialLogin.googleSignIn();
-          if(!result || !result.idToken){
-            throw new Error('Google native login: idToken manquant');
+      // Heuristique WebView Android (au cas où le bridge n'est pas dispo)
+      const isAndroidWV = /Android/i.test(navigator.userAgent) && /\b; wv\)\b/.test(navigator.userAgent);
+
+      if (hasNativeGoogle || isAndroidWV) {
+        try {
+          // 1) Flux NATIF Median (pas de popup ni redirect web)
+          const result = hasNativeGoogle
+            ? await window.Median.socialLogin.googleSignIn()
+            : null;
+
+          if (!result || !result.idToken) {
+            throw new Error('Google native login: idToken manquant (plugin non chargé ?)');
           }
 
-          // Option debug utile pour vérifier que l’audience = Web Client ID du bon projet
+          // Debug: vérifier l’audience du token (doit === Web Client ID du projet Firebase habit-8d57f)
           try {
             const payload = JSON.parse(atob(result.idToken.split('.')[1]));
             console.log('Native Google aud =', payload.aud);
           } catch {}
 
-          // Connexion Firebase avec le token natif
+          // 2) Connexion Firebase avec le token natif
           const cred = GoogleAuthProvider.credential(result.idToken);
           const userCred = await signInWithCredential(auth, cred);
           return userCred.user;
         } catch (e){
           console.error('Median native Google Sign-In failed', e);
-          alert('Erreur d’authentification (natif). Vérifie la config Median + Web Client ID.');
+          alert('Erreur d’authentification (flux natif). Vérifie le Web Client ID dans Median puis rebuild l’APK.');
           throw e;
         }
       }
 
-      // Navigateur “classique” → flux web OK
+      // 3) Navigateur “classique” (pas WebView) → flux web OK
       try{
         const provider = new GoogleAuthProvider();
         const cred = await signInWithPopup(auth, provider);
@@ -657,6 +662,7 @@
         throw e;
       }
     }
+
 
 
     async function signOutGoogle(){
@@ -703,39 +709,39 @@
     }
 
 
-async function initFirebaseAndAuth(){
-  app = initializeApp(firebaseConfig);
-  db = getFirestore(app);
-  auth = getAuth(app);
-  provider = new GoogleAuthProvider();
+    async function initFirebaseAndAuth(){
+      app = initializeApp(firebaseConfig);
+      db = getFirestore(app);
+      auth = getAuth(app);
+      provider = new GoogleAuthProvider();
 
-  onAuthStateChanged(auth, async (u) => {
-    user = u || null;
-    updateAuthUI();
-    await setupFirestoreForUser();
+      onAuthStateChanged(auth, async (u) => {
+        user = u || null;
+        updateAuthUI();
+        await setupFirestoreForUser();
 
-    // 🔄 Auto-reset local en cas de déconnexion
-    if (!u) {
-      data = { habits: [], completions: {}, _rev: 0 };
-      clearAllCaches();
+        if (!u) {
+          data = { habits: [], completions: {}, _rev: 0 };
+          clearAllCaches();
+        }
+      });
+
+      // Tous les boutons de connexion doivent passer par signInGoogle()
+      authBtn.onclick = async ()=>{
+        try{
+          if(user){ await signOutGoogle(); }
+          else { await signInGoogle(); }
+        }catch(e){ console.error(e); alert('Erreur d’authentification'); }
+      };
+
+      if (authBtnBig) {
+        authBtnBig.onclick = async ()=>{
+          try{ await signInGoogle(); }
+          catch(e){ console.error(e); alert('Erreur d’authentification'); }
+        };
+      }
     }
-  });
 
-  // Boutons d'auth (header + grand bouton page déconnectée)
-  authBtn.onclick = async ()=>{
-    try{
-      if(user){ await signOutGoogle(); }
-      else { await signInGoogle(); }
-    }catch(e){ console.error(e); alert('Erreur d’authentification'); }
-  };
-
-  if (authBtnBig) {
-    authBtnBig.onclick = async ()=>{
-      try{ await signInGoogle(); }
-      catch(e){ console.error(e); alert('Erreur d’authentification'); }
-    };
-  }
-}
 
 
 
