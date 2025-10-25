@@ -360,13 +360,15 @@
 }
 
 
+let navOpenedAt = 0;
+
 function openNavPanel(){
   navPanel.classList.remove('hidden');
   navOverlay.classList.remove('hidden');
   navPanel.style.visibility = 'visible';
+  navOpenedAt = Date.now();
   requestAnimationFrame(()=>{ navPanel.style.transform = 'translateX(0)'; });
 
-  // swap icônes
   burgerIcon.classList.add('hidden');
   closeIcon.classList.remove('hidden');
 }
@@ -379,21 +381,37 @@ function closeNavPanel(){
     navPanel.removeEventListener('transitionend', onEnd);
     navPanel.classList.add('hidden');
     navPanel.style.visibility = 'hidden';
-    // swap icônes
     burgerIcon.classList.remove('hidden');
     closeIcon.classList.add('hidden');
   };
   navPanel.addEventListener('transitionend', onEnd, { once:true });
 }
 
-if (burgerBtn) burgerBtn.onclick = () => {
-  const isOpen = !navPanel.classList.contains('hidden') && navPanel.style.visibility !== 'hidden';
-  isOpen ? closeNavPanel() : openNavPanel();
-};
+if (burgerBtn) {
+  burgerBtn.addEventListener('click', (e)=>{
+    e.stopPropagation(); // évite que le clic “touche” l’overlay apparu à ce tick
+    const isOpen = !navPanel.classList.contains('hidden') && navPanel.style.visibility !== 'hidden';
+    isOpen ? closeNavPanel() : openNavPanel();
+  }, { passive: true });
+}
+
+// Overlay: ignorer les clics dans les 250 ms après ouverture
+if (navOverlay) {
+  navOverlay.addEventListener('click', (e)=>{
+    if (Date.now() - navOpenedAt < 250) return;
+    if (e.target === navOverlay) closeNavPanel();
+  });
+}
+
+// Fermer avec Echap uniquement si ouvert
+document.addEventListener('keydown', (e)=>{
+  if (e.key === 'Escape' && navPanel.style.visibility === 'visible') {
+    closeNavPanel();
+  }
+});
+
 
 if (closeNavBtn) closeNavBtn.onclick = closeNavPanel;
-if (navOverlay)  navOverlay.addEventListener('click', (e)=>{ if(e.target === navOverlay) closeNavPanel(); });
-document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeNavPanel(); });
 
 // Actions Import/Export/Logout
 menuImport.onclick = () => {
@@ -785,7 +803,57 @@ menuLogout.onclick = async () => {
 
 
 
-    function router(){ const [,route,a]=(window.location.hash||'').split('/'); if(isSmall()){ const today=formatDateKey(new Date()); if(route==='day' && a){ showDayPage(a);} else { showDayPage(today);} } else { if(route==='day' && a){ showDayPage(a);} else { goHome(); } } }
+    let lastIsSmall = null;
+    let resizeTimer = null;
+
+    function router(){
+      const hash = window.location.hash || '';
+      const [, route, a] = hash.split('/');
+      const small = isSmall();
+
+      // 1) Si on est déjà sur /day/..., respecter le hash quel que soit l'écran.
+      if (route === 'day' && a) {
+        showDayPage(a);
+        return;
+      }
+
+      // 2) Mobile (ou petit écran) : forcer /day/<today> si pas déjà en day.
+      if (small) {
+        const today = formatDateKey(new Date());
+        if (route !== 'day') {
+          // écrire le hash pour stabiliser la route (évite les retours à /home)
+          window.location.hash = `#/day/${today}`;
+        }
+        showDayPage(a || today);
+        return;
+      }
+
+      // 3) Desktop : si pas de route day, aller home.
+      // (si le hash est day sans 'a', on choisit today)
+      if (route === 'day' && !a) {
+        const today = formatDateKey(new Date());
+        window.location.hash = `#/day/${today}`;
+        showDayPage(today);
+      } else {
+        goHome();
+      }
+    }
+
+    // Debounce du resize + bascule uniquement si on franchit le seuil sm
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        const small = isSmall();
+        if (lastIsSmall === null || small !== lastIsSmall) {
+          lastIsSmall = small;
+          router();
+        }
+      }, 120);
+    });
+
+    // Premier appel
+    lastIsSmall = isSmall();
+
     window.addEventListener('hashchange', router); window.addEventListener('resize', router);
 
     function bindOverlayClose(overlayEl, closeFn){ if(!overlayEl) return; overlayEl.addEventListener('click', (e)=>{ if(e.target === overlayEl) closeFn(); }); }
