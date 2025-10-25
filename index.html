@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>HBTRKR</title>
+  <title>HBTRK</title>
   <link rel="icon" href="ico.png">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -36,15 +36,26 @@
   <header class="fixed top-0 left-0 right-0 z-40 backdrop-blur-md bg-gradient-to-b from-black/40 to-transparent border-b border-white/5">
     <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
       <div class="flex items-center gap-2 sm:gap-4">
-        <button id="appTitle" class="text-lg  font-extrabold tracking-wide hover:opacity-80">HBTRKR</button>
+        <button id="appTitle" class="text-lg  font-extrabold tracking-wide hover:opacity-80">HBTRK</button>
       </div>
-      <div class="flex items-center gap-3">
-        <button id="importBtn" class="text-sm px-3 py-1 rounded-full hover:bg-white/5">Importer</button>
-        <button id="exportBtn" class="text-sm px-3 py-1 rounded-full hover:bg-white/5">Exporter</button>
-        <button id="addHabitBtn" class="text-sm bg-white/10 px-3 py-1 rounded-full hover:bg-white/15">+ Habitude</button>
-        <button id="logoutBtn" class="hidden text-sm px-3 py-1 rounded-full hover:bg-white/5">Se déconnecter</button>
+<div class="flex items-center gap-3">
+  <!-- On garde + Habitude dans le header -->
+  <button id="addHabitBtn" class="text-sm bg-white/10 px-3 py-1 rounded-full hover:bg-white/15">+ Habitude</button>
 
-      </div>
+  <!-- Burger toujours visible -->
+  <button id="burgerBtn" aria-label="Menu"
+          class="h-7 w-12 grid place-items-center rounded-full bg-white/10 hover:bg-white/15 border border-white/10 transition active:scale-95">
+    <!-- icône burger -->
+    <svg id="burgerIcon" width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <!-- icône X (caché par défaut) -->
+    <svg id="closeIcon" class="hidden" width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M6 6l12 12M18 6l-12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </button>
+</div>
+
     </div>
   </header>
 
@@ -54,8 +65,10 @@
   <div id="dayOverlay" class="hidden fixed inset-0 z-40 bg-black/30"></div>
 
   <!-- Day side panel: now glass -->
-  <div id="dayPanel" class="hidden md:block fixed right-4 top-20 z-50 w-192 max-w-full glass rounded-2xl shadow-2xl p-4 translate-x-full transition-transform duration-300 overflow-y-auto"
-    style="max-height: calc(100vh - 6rem);">
+  <div id="dayPanel"
+    class="hidden md:block fixed right-4 top-20 z-50 w-192 max-w-full glass rounded-2xl shadow-2xl p-4 transition-transform duration-300 overflow-y-auto will-change-transform"
+    style="max-height: calc(100vh - 6rem); transform: translateX(calc(100% + 1rem)); visibility: hidden;">
+
     <div class="flex items-start justify-between mb-3">
       <div>
         <div id="panelDate" class="text-sm font-semibold">Jour</div>
@@ -124,6 +137,36 @@
       <div id="yearSummary" class="space-y-3"></div>
     </div>
   </div>
+<!-- Overlay du menu -->
+<div id="navOverlay" class="hidden fixed inset-0 z-40 bg-black/30"></div>
+
+<!-- Panneau menu (verre) -->
+<div id="navPanel"
+     class="hidden fixed right-4 top-20 z-50 w-64 max-w-full glass rounded-2xl shadow-2xl p-3 transition-transform duration-300 overflow-y-auto will-change-transform"
+     style="max-height: calc(100vh - 6rem); transform: translateX(calc(100% + 1rem)); visibility: hidden;">
+
+    <div id="userBadge" class="hidden mb-3">
+      <span class="chip chip-neutral">
+        <span id="userNamePart">—</span>
+      </span>
+    </div>
+
+  <div class="space-y-2">
+
+    <button id="menuImport"
+            class="w-full text-left px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10">
+      Importer
+    </button>
+    <button id="menuExport"
+            class="w-full text-left px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10">
+      Exporter
+    </button>
+    <button id="menuLogout"
+            class="w-full text-left px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10">
+      Se déconnecter
+    </button>
+  </div>
+</div>
 
   <input id="fileInput" type="file" accept="application/json" class="hidden" />
 
@@ -195,6 +238,18 @@
     const yearSummary = document.getElementById('yearSummary');
     const yearModalTitle = document.getElementById('yearModalTitle');
 
+    // --- Burger menu elements
+    const burgerBtn   = document.getElementById('burgerBtn');
+    const burgerIcon  = document.getElementById('burgerIcon');
+    const closeIcon   = document.getElementById('closeIcon');
+    const navPanel    = document.getElementById('navPanel');
+    const navOverlay  = document.getElementById('navOverlay');
+    const menuImport  = document.getElementById('menuImport');
+    const menuExport  = document.getElementById('menuExport');
+    const menuLogout  = document.getElementById('menuLogout');
+    const closeNavBtn = document.getElementById('closeNavPanel');
+
+
     const appTitle = document.getElementById('appTitle');
 
     let focusedDateKey = null;
@@ -211,18 +266,156 @@
     const getCompletionRate = (dateKey)=>{ const dayData = data.completions[dateKey] || {}; const activeHabits = data.habits.filter(h=>isHabitActiveOn(h,dateKey)); if(activeHabits.length===0) return 0; const completed = activeHabits.filter(h=>dayData[h.name]).length; return completed / activeHabits.length; };
 
     const headerEl   = document.querySelector('header');
-    const hideAppForAuth = (hide) => {
-      const method = hide ? 'add' : 'remove';
-      headerEl.classList[method]('hidden');
-      homePage.classList[method]('hidden');
-      dayPage.classList[method]('hidden');
-      dayPanel.classList[method]('hidden');
-      dayOverlay.classList[method]('hidden');
-      // On ferme les autres modales si besoin
-      modalAddHabit.classList.add('hidden'); modalAddHabit.classList.remove('flex');
-      monthModal.classList.add('hidden');    monthModal.classList.remove('flex');
-      yearModal.classList.add('hidden');     yearModal.classList.remove('flex');
-    };
+
+  const userBadge     = document.getElementById('userBadge');
+  const userNamePart  = document.getElementById('userNamePart');
+
+  function extractLocalPart(email){
+    // "john.doe@mail.com" -> "john.doe"
+    if(!email || typeof email !== 'string') return '';
+    const at = email.indexOf('@');
+    return at > 0 ? email.slice(0, at) : email;
+  }
+
+  // Ajoute dans hideAppForAuth, comme pour dayPanel/overlay :
+  const hideAppForAuth = (hide) => {
+  const method = hide ? 'add' : 'remove';
+  headerEl.classList[method]('hidden');
+  homePage.classList[method]('hidden');
+  dayPage.classList[method]('hidden');
+
+  // Toujours cachés par défaut
+  dayOverlay.classList.add('hidden');
+  dayPanel.classList.add('hidden');
+  dayPanel.style.transform = 'translateX(110%)';
+
+  // Burger panel & overlay toujours cachés aussi
+  navOverlay.classList.add('hidden');
+  navPanel.classList.add('hidden');
+  navPanel.style.transform = 'translateX(calc(100% + 1rem))';
+  navPanel.style.visibility = 'hidden';
+  burgerIcon.classList.remove('hidden');
+  closeIcon.classList.add('hidden');
+
+  // Ferme toutes les modales si besoin (déjà présent chez toi)
+  modalAddHabit.classList.add('hidden'); modalAddHabit.classList.remove('flex');
+  monthModal.classList.add('hidden');    monthModal.classList.remove('flex');
+  yearModal.classList.add('hidden');     yearModal.classList.remove('flex');
+};
+
+
+  // --- Helpers dates/périodes
+  const toDate = (s)=> new Date(s + 'T00:00:00');
+  const cmpDateStr = (a,b)=> (a<b? -1 : a>b? 1 : 0); // "YYYY-MM-DD" comparables en string
+
+  function periodEnd(h){ // fin exclue
+    return h.deletedAt ? toDate(h.deletedAt) : null; // null => infini
+  }
+
+  /**
+   * Règle d'ajout :
+   * - Interdit si la date de début S tombe dans une période existante de même nom
+   * - Interdit si S est avant le début d'une période future (car nouvelle période est ouverte et chevauchera)
+   * - Autorisé uniquement si S est strictement après la fin (deletedAt) de TOUTES les périodes existantes
+   */
+  function addHabitSmart(name, startDate){
+  // startDate: "YYYY-MM-DD"
+  const same = data.habits
+    .filter(h => h.name === name)
+    .sort((a,b) => a.startDate.localeCompare(b.startDate));
+
+  // 1) Tenter de ré-ouvrir / fusionner avec une période existante
+  for (const h of same){
+    const A = h.startDate;                // début inclus
+    const B = h.deletedAt || '9999-12-31';// fin exclue (ou "infinie" si null)
+
+    // Cas 1: startDate tombe DANS la période [A, B) -> on ré-ouvre (supprime deletedAt)
+    if (startDate >= A && startDate < B){
+      // si on redémarre avant A, on étend vers l'AR (rare ici mais safe)
+      if (startDate < A) h.startDate = startDate;
+      delete h.deletedAt;
+      return { action: 'merged', target: h };
+    }
+
+    // Cas 2: startDate <= B (donc chevauche potentiellement) -> on fusionne en étendant au besoin
+    if (startDate <= B){
+      if (startDate < A) h.startDate = startDate; // étend le début si nécessaire
+      delete h.deletedAt;
+      return { action: 'merged', target: h };
+    }
+  }
+
+  // 2) Sinon, on autorise l'ajout UNIQUEMENT si startDate est après la fin de toutes les périodes existantes
+  if (same.length){
+    const everyEndedBeforeStart = same.every(h => !!h.deletedAt && h.deletedAt <= startDate);
+    if (!everyEndedBeforeStart){
+      return { action: 'ignored' }; // éviter tout chevauchement
+    }
+  }
+
+  // 3) Aucune fusion possible -> on crée une NOUVELLE période
+  const created = { name, startDate };
+  data.habits.push(created);
+  return { action: 'added', target: created };
+}
+
+
+function openNavPanel(){
+  navPanel.classList.remove('hidden');
+  navOverlay.classList.remove('hidden');
+  navPanel.style.visibility = 'visible';
+  requestAnimationFrame(()=>{ navPanel.style.transform = 'translateX(0)'; });
+
+  // swap icônes
+  burgerIcon.classList.add('hidden');
+  closeIcon.classList.remove('hidden');
+}
+
+function closeNavPanel(){
+  navPanel.style.transform = 'translateX(calc(100% + 1rem))';
+  navOverlay.classList.add('hidden');
+
+  const onEnd = () => {
+    navPanel.removeEventListener('transitionend', onEnd);
+    navPanel.classList.add('hidden');
+    navPanel.style.visibility = 'hidden';
+    // swap icônes
+    burgerIcon.classList.remove('hidden');
+    closeIcon.classList.add('hidden');
+  };
+  navPanel.addEventListener('transitionend', onEnd, { once:true });
+}
+
+if (burgerBtn) burgerBtn.onclick = () => {
+  const isOpen = !navPanel.classList.contains('hidden') && navPanel.style.visibility !== 'hidden';
+  isOpen ? closeNavPanel() : openNavPanel();
+};
+
+if (closeNavBtn) closeNavBtn.onclick = closeNavPanel;
+if (navOverlay)  navOverlay.addEventListener('click', (e)=>{ if(e.target === navOverlay) closeNavPanel(); });
+document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeNavPanel(); });
+
+// Actions Import/Export/Logout
+menuImport.onclick = () => {
+  // réutilise ton <input type="file" id="fileInput">
+  document.getElementById('fileInput').click();
+  closeNavPanel();
+};
+
+menuExport.onclick = () => {
+  // on déclenche le même export que tu avais
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='fourpill-data.json'; a.click();
+  URL.revokeObjectURL(url);
+  closeNavPanel();
+};
+
+menuLogout.onclick = async () => {
+  try { await signOut(auth); } catch(e){ console.error(e); }
+  closeNavPanel();
+};
 
 
     function computeStreakForHabit(habitName, asOfDateKey){
@@ -277,19 +470,32 @@
 
     // === OUVERTURE / FERMETURE DU PANNEAU DAY ===
     function openDayPanel(dateKey){
-      focusedDateKey=dateKey;
-      panelDate.textContent=new Date(dateKey).toLocaleDateString('fr-FR',{weekday:'short', day:'numeric', month:'short', year:'numeric'});
-      panelDateLong.textContent=dateKey;
+      focusedDateKey = dateKey;
+      panelDate.textContent = new Date(dateKey).toLocaleDateString('fr-FR',{weekday:'short', day:'numeric', month:'short', year:'numeric'});
+      panelDateLong.textContent = dateKey;
       populateHabits(dateKey, habitsList, false);
+
       dayPanel.classList.remove('hidden');
       dayOverlay.classList.remove('hidden');
-      requestAnimationFrame(()=>{ dayPanel.style.transform='translateX(0)'; });
+      // rendre visible avant l’anim
+      dayPanel.style.visibility = 'visible';
+      // lancer l’anim au frame suivant
+      requestAnimationFrame(()=>{ dayPanel.style.transform = 'translateX(0)'; });
     }
+
     function closeDayPanel(){
-      dayPanel.style.transform='translateX(110%)';
+      // pousse totalement hors-écran (100% + 1rem correspondant à right-4)
+      dayPanel.style.transform = 'translateX(calc(100% + 1rem))';
       dayOverlay.classList.add('hidden');
-      setTimeout(()=>{ if(dayPanel.style.transform.includes('110%')) dayPanel.classList.add('hidden'); }, 250);
+
+      const onEnd = () => {
+        dayPanel.removeEventListener('transitionend', onEnd);
+        dayPanel.classList.add('hidden');
+        dayPanel.style.visibility = 'hidden';
+      };
+      dayPanel.addEventListener('transitionend', onEnd, { once:true });
     }
+
 
     document.getElementById('closePanel').onclick=closeDayPanel;
     dayOverlay.addEventListener('click', closeDayPanel);
@@ -389,7 +595,35 @@
 
         if(container !== dayHabitsList){
           const edit=document.createElement('button'); edit.className='text-xs px-2 py-1 rounded hover:bg-white/5'; edit.textContent='✏️'; edit.onclick=async()=>{ const newName=prompt('Nouveau nom pour '+h.name,h.name); if(newName&&newName.trim()!==h.name){ const oldName=h.name; h.name=newName.trim(); for(const k in data.completions){ if(data.completions[k] && Object.prototype.hasOwnProperty.call(data.completions[k], oldName)){ data.completions[k][h.name]=data.completions[k][oldName]; delete data.completions[k][oldName]; } } clearHabitCaches(oldName); clearHabitCaches(h.name); await persistDebounced(0); rerenderSelf(); } };
-          const del=document.createElement('button'); del.className='text-xs px-2 py-1 rounded hover:bg-white/5'; del.textContent='🗑️'; del.onclick=async()=>{ h.deletedAt=new Date().toISOString().slice(0,10); clearHabitCaches(h.name); await persistDebounced(0); rerenderSelf(); updateDayCell(dateKey); };
+          const del = document.createElement('button');
+          del.className = 'text-xs px-2 py-1 rounded hover:bg-white/5';
+          del.textContent = '🗑️';
+          del.onclick = async ()=>{
+            // 🔸 Suppression effective à partir du jour sélectionné (dateKey), pas "aujourd'hui"
+            const cut = dateKey; // "YYYY-MM-DD"
+
+            // Si already deleted plus tôt, on garde la 1re date de suppression (la plus proche du début)
+            if (!h.deletedAt || cmpDateStr(cut, h.deletedAt) < 0) {
+              h.deletedAt = cut;
+            }
+
+            // 🔸 On supprime TOUTES les complétions >= cut pour cette habitude
+            for (const k of Object.keys(data.completions)) {
+              if (cmpDateStr(k, cut) >= 0 && data.completions[k] && data.completions[k][h.name]) {
+                delete data.completions[k][h.name];
+                // optionnel : nettoyer les jours vides
+                if (Object.keys(data.completions[k]).length === 0) delete data.completions[k];
+              }
+            }
+
+            clearHabitCaches(h.name);
+            await persistDebounced(0);
+
+            // UI : on rerender pour refléter la fin de période et la purge
+            rerenderSelf();
+            renderYears(); // s'assure que le calendrier reflète les nouvelles couleurs
+          };
+
           right.append(badge,edit,del);
         } else {
           right.append(badge);
@@ -531,11 +765,25 @@
     const modalAddHabit=document.getElementById('modalAddHabit');
     document.getElementById('addHabitBtn').onclick=()=>{ document.getElementById('habitNameInput').value=''; document.getElementById('habitStartInput').value=new Date().toISOString().slice(0,10); modalAddHabit.classList.remove('hidden'); modalAddHabit.classList.add('flex'); };
     document.getElementById('cancelAddHabit').onclick=()=>{ modalAddHabit.classList.add('hidden'); modalAddHabit.classList.remove('flex'); };
-    document.getElementById('confirmAddHabit').onclick=async()=>{ const name=document.getElementById('habitNameInput').value.trim(); const start=document.getElementById('habitStartInput').value; if(!name||!start){ alert('Nom et date requis'); return; } data.habits.push({name,startDate:start}); clearHabitCaches(name); await persistDebounced(0); modalAddHabit.classList.add('hidden'); modalAddHabit.classList.remove('flex'); renderYears(); };
+    document.getElementById('confirmAddHabit').onclick = async ()=>{
+      const name  = document.getElementById('habitNameInput').value.trim();
+      const start = document.getElementById('habitStartInput').value;
+      if(!name || !start){ alert('Nom et date requis'); return; }
 
-    document.getElementById('exportBtn').onclick=()=>{ const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='fourpill-data.json'; a.click(); URL.revokeObjectURL(url); };
-    document.getElementById('importBtn').onclick=()=>document.getElementById('fileInput').click();
-    document.getElementById('fileInput').onchange=async e=>{ const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=async()=>{ data=JSON.parse(r.result); clearAllCaches(); await persistDebounced(0); renderYears(); focusCurrentMonth(); }; r.readAsText(f); };
+      const res = addHabitSmart(name, start);
+
+      // Optionnel: feedback
+      // if (res.action === 'ignored') { alert("Ajout ignoré (période chevauchante)."); }
+
+      clearHabitCaches(name);
+      await persistDebounced(0);
+
+      modalAddHabit.classList.add('hidden'); 
+      modalAddHabit.classList.remove('flex');
+      renderYears();
+    };
+
+
 
     function router(){ const [,route,a]=(window.location.hash||'').split('/'); if(isSmall()){ const today=formatDateKey(new Date()); if(route==='day' && a){ showDayPage(a);} else { showDayPage(today);} } else { if(route==='day' && a){ showDayPage(a);} else { goHome(); } } }
     window.addEventListener('hashchange', router); window.addEventListener('resize', router);
@@ -564,26 +812,32 @@ const showAuthModal = () => { authModal.classList.remove('hidden'); authModal.cl
 const hideAuthModal = () => { authModal.classList.add('hidden'); authModal.classList.remove('flex'); };
 
 function setAuthedUI(authed){
-  if(authed){
-    // on montre l'app
+  if (authed){
     hideAppForAuth(false);
-    hideAuthModal();
-    // boutons visibles une fois connecté
-    document.getElementById('importBtn').classList.remove('hidden');
-    document.getElementById('exportBtn').classList.remove('hidden');
-    document.getElementById('addHabitBtn').classList.remove('hidden');
-    logoutBtn.classList.remove('hidden');
+    hideAuthModal();                    // <— ajoute ça
+    burgerBtn?.classList.remove('hidden');
+
+    const em = (auth?.currentUser && auth.currentUser.email) || '';
+    const local = extractLocalPart(em);
+    if (local){
+      userNamePart.textContent = local;
+      userBadge.classList.remove('hidden');
+    } else {
+      userNamePart.textContent = '—';
+      userBadge.classList.add('hidden');
+    }
   } else {
-    // on cache tout sauf la modale d'auth
     hideAppForAuth(true);
-    showAuthModal();
-    // masque les boutons
-    document.getElementById('importBtn').classList.add('hidden');
-    document.getElementById('exportBtn').classList.add('hidden');
-    document.getElementById('addHabitBtn').classList.add('hidden');
-    logoutBtn.classList.add('hidden');
+    showAuthModal();                    // <— et ça
+    burgerBtn?.classList.add('hidden');
+    closeNavPanel();
+
+    userNamePart.textContent = '—';
+    userBadge.classList.add('hidden');
   }
 }
+
+
 
   async function initFirebaseAll(){
     app  = initializeApp(firebaseConfig);
@@ -667,9 +921,7 @@ function setAuthedUI(authed){
       }
     };
 
-    logoutBtn.onclick = async ()=>{
-      try{ await signOut(auth); } catch(e){ console.error(e); }
-    };
+
   }
 
   // Remplace ton ancien init par :
