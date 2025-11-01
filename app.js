@@ -1042,6 +1042,89 @@ const forgotPassword = document.getElementById('forgotPassword');
 const showAuthModal = () => { authModal.classList.remove('hidden'); authModal.classList.add('flex'); };
 const hideAuthModal = () => { authModal.classList.add('hidden'); authModal.classList.remove('flex'); };
 
+// Utilitaire pour afficher des messages propres à l'utilisateur
+function friendlyAuthError(code) {
+  switch (code) {
+    case 'auth/invalid-email':
+      return "Email invalide.";
+    case 'auth/missing-password':
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+      return "Email ou mot de passe incorrect.";
+    case 'auth/user-not-found':
+      return "Aucun compte trouvé avec cet email.";
+    case 'auth/email-already-in-use':
+      return "Cet email est déjà utilisé.";
+    case 'auth/weak-password':
+      return "Mot de passe trop faible (6 caractères minimum).";
+    default:
+      return "Une erreur est survenue. Réessaie.";
+  }
+}
+
+// Bouton "Se connecter"
+authSubmit.onclick = async () => {
+  authErrorEl.textContent = "";
+
+  const email = authEmail.value.trim();
+  const pass  = authPass.value;
+
+  if (!email || !pass) {
+    authErrorEl.textContent = "Entre ton email et ton mot de passe.";
+    return;
+  }
+
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+    // Pas besoin de plus ici : onAuthStateChanged() fera le reste
+  } catch (err) {
+    console.error("login error:", err);
+    authErrorEl.textContent = friendlyAuthError(err.code);
+  }
+};
+
+// Bouton "Créer un compte"
+authCreate.onclick = async () => {
+  authErrorEl.textContent = "";
+
+  const email = authEmail.value.trim();
+  const pass  = authPass.value;
+
+  if (!email || !pass) {
+    authErrorEl.textContent = "Choisis un email et un mot de passe (6+ caractères).";
+    return;
+  }
+
+  try {
+    await createUserWithEmailAndPassword(auth, email, pass);
+    // L'utilisateur est maintenant connecté automatiquement,
+    // puis onAuthStateChanged() va cacher la modale etc.
+  } catch (err) {
+    console.error("signup error:", err);
+    authErrorEl.textContent = friendlyAuthError(err.code);
+  }
+};
+
+// Lien "Mot de passe oublié ?"
+forgotPassword.onclick = async () => {
+  authErrorEl.textContent = "";
+
+  const email = authEmail.value.trim();
+  if (!email) {
+    authErrorEl.textContent = "Entre d'abord ton email, puis reclique.";
+    return;
+  }
+
+  try {
+    await sendPasswordResetEmail(auth, email);
+    authErrorEl.textContent = "Email de réinitialisation envoyé ✔︎";
+  } catch (err) {
+    console.error("reset error:", err);
+    authErrorEl.textContent = friendlyAuthError(err.code);
+  }
+};
+
+
 function setAuthedUI(authed){
     if (authed){
     hideAppForAuth(false);
