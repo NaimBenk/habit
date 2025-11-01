@@ -109,18 +109,99 @@
   <div id="modalAddHabit" class="fixed inset-0 z-60 hidden items-center justify-center bg-black/50" role="dialog" aria-modal="true">
     <div class="glass rounded-xl p-4 w-96 shadow-2xl">
       <h3 class="font-semibold mb-2">Ajouter une habitude</h3>
-      <input id="habitNameInput" class="w-full py-2 px-4 rounded-full bg-white/10 border border-white/10 mb-2" placeholder="Nom de l'Habitude"/>
+
+      <!-- Nom -->
+      <input id="habitNameInput"
+        class="w-full py-2 px-4 rounded-full bg-white/10 border border-white/10 mb-2"
+        placeholder="Nom de l'Habitude"/>
+
+      <!-- Date de début -->
       <label class="block text-xs text-white/60 mb-2">Active à partir de :</label>
-      <input id="habitStartInput" type="date" class="w-full py-2 px-4 rounded-full bg-white/10 border border-white/10 mb-2" />
-      <label class="block text-xs text-white/60 mb-2">Fréquence :</label>
-      <select id="habitFrequencyInput" class="w-full py-2 px-4 rounded-full bg-white/10 border border-white/10 mb-3">
-        <option value="daily">Quotidienne</option>
-        <option value="weekly">Hebdomadaire</option>
-        <option value="monthly">Mensuelle</option>
-      </select>
+      <input id="habitStartInput" type="date"
+        class="w-full py-2 px-4 rounded-full bg-white/10 border border-white/10 mb-4" />
+
+      <!-- Fréquence -->
+      <div class="mb-4">
+        <div class="text-xs text-white/60 mb-2 font-semibold">Fréquence :</div>
+
+        <!-- MODE A : Hebdomadaire -->
+        <div id="freqWeeklyBlock"
+          class="mb-3 p-3 rounded-lg border border-white/10 bg-white/5">
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-sm font-semibold">Hebdomadaire</div>
+            <input id="freqWeeklyRadio" type="radio" name="freqMode" value="weekly"
+              class="w-4 h-4 accent-[rgb(0,200,75)]">
+          </div>
+
+<div id="weeklyDaysRow" class="flex gap-1">
+  <button data-dow="1" class="dayToggle flex-1 py-2 text-xs rounded-md font-semibold border-green-400/40 bg-[rgb(0,200,75)] text-black">L</button>
+  <button data-dow="2" class="dayToggle flex-1 py-2 text-xs rounded-md font-semibold border-green-400/40 bg-[rgb(0,200,75)] text-black">M</button>
+  <button data-dow="3" class="dayToggle flex-1 py-2 text-xs rounded-md font-semibold border-green-400/40 bg-[rgb(0,200,75)] text-black">M</button>
+  <button data-dow="4" class="dayToggle flex-1 py-2 text-xs rounded-md font-semibold border-green-400/40 bg-[rgb(0,200,75)] text-black">J</button>
+  <button data-dow="5" class="dayToggle flex-1 py-2 text-xs rounded-md font-semibold border-green-400/40 bg-[rgb(0,200,75)] text-black">V</button>
+  <button data-dow="6" class="dayToggle flex-1 py-2 text-xs rounded-md font-semibold border-green-400/40 bg-[rgb(0,200,75)] text-black">S</button>
+  <button data-dow="0" class="dayToggle flex-1 py-2 text-xs rounded-md font-semibold border-green-400/40 bg-[rgb(0,200,75)] text-black">D</button>
+</div>
+
+
+          <div class="text-[10px] text-white/40 mt-2">
+            Choisis les jours où l'habitude apparaît.
+          </div>
+        </div>
+
+        <!-- MODE B : Tous les X jours -->
+        <div id="freqIntervalBlock"
+          class="mb-3 p-3 rounded-lg border border-white/10 bg-white/5">
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-sm font-semibold">Tous les X jours</div>
+            <input id="freqIntervalRadio" type="radio" name="freqMode" value="interval"
+              class="w-4 h-4 accent-[rgb(0,200,75)]">
+          </div>
+
+          <div class="flex items-center gap-2">
+            <input id="everyXDaysInput" type="number" min="1"
+              class="w-16 py-2 px-3 rounded-md bg-white/10 border border-white/10 text-sm"
+              value="3">
+            <div class="text-xs text-white/80">Répéter tous les X jours</div>
+          </div>
+
+          <div class="text-[10px] text-white/40 mt-2">
+            Apparaît le jour de départ, puis à nouveau après X jours, etc.
+          </div>
+        </div>
+
+        <!-- MODE C : Le X du mois -->
+        <div id="freqMonthlyBlock"
+          class="mb-4 p-3 rounded-lg border border-white/10 bg-white/5">
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-sm font-semibold">Chaque mois le…</div>
+            <input id="freqMonthlyRadio" type="radio" name="freqMode" value="monthly"
+              class="w-4 h-4 accent-[rgb(0,200,75)]">
+          </div>
+
+          <div class="flex items-center gap-2">
+            <input id="dayOfMonthInput" type="number" min="1" max="31"
+              class="w-16 py-2 px-3 rounded-md bg-white/10 border border-white/10 text-sm"
+              value="1">
+            <div class="text-xs text-white/80">… du mois</div>
+          </div>
+
+          <div class="text-[10px] text-white/40 mt-2">
+            Si le mois n’a pas ce jour (ex: 31), l’habitude n’apparaît pas.
+          </div>
+        </div>
+      </div>
+
+      <!-- Boutons Annuler / Ajouter -->
       <div class="flex justify-end gap-2">
-        <button id="cancelAddHabit" class="px-3 py-1 rounded-full hover:bg-white/5">Annuler</button>
-        <button id="confirmAddHabit" class="px-3 py-1 bg-white/10 rounded-full hover:bg-white/15">Ajouter</button>
+        <button id="cancelAddHabit"
+          class="px-3 py-1 rounded-full hover:bg-white/5">
+          Annuler
+        </button>
+        <button id="confirmAddHabit"
+          class="px-3 py-1 bg-white/10 rounded-full hover:bg-white/15">
+          Ajouter
+        </button>
       </div>
     </div>
   </div>
@@ -284,6 +365,78 @@
     const navPanel    = document.getElementById('navPanel');
     const navOverlay  = document.getElementById('navOverlay');
     const menuImport  = document.getElementById('menuImport');
+    // Gestion de l'import JSON
+    const fileInput = document.getElementById('fileInput');
+
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      try {
+        // 1. Lire le contenu du fichier
+        const text = await file.text();
+
+        // 2. Parser le JSON
+        const imported = JSON.parse(text);
+
+        // 3. Valider structure minimale
+        if (
+          !imported ||
+          !Array.isArray(imported.habits) ||
+          typeof imported.completions !== 'object'
+        ) {
+          alert("Fichier invalide : il doit contenir 'habits' (array) et 'completions' (object).");
+          fileInput.value = '';
+          return;
+        }
+
+        // 4. Injecter dans l'app
+        data = {
+          habits: imported.habits || [],
+          completions: imported.completions || {},
+          _rev: (imported._rev || 0)
+        };
+
+        clearAllCaches();
+
+        // 5. Forcer un rerender immédiat en local
+        renderYears();
+
+        // Si on a déjà une date affichée en vue day, on la rerend aussi
+        if (focusedDateKey) {
+          if (!isSmall()) {
+            // panneau latéral (desktop)
+            populateHabits(focusedDateKey, habitsList, false);
+            updateDayCell(focusedDateKey);
+          } else {
+            // vue day (mobile)
+            showDayPage(focusedDateKey);
+          }
+        }
+
+        // 6. Essayer de pousser sur Firestore si on est connecté et qu'on a docRef
+        try {
+          if (docRef) {
+            data._rev = (data._rev || 0) + 1;
+            lastLocalRev = data._rev;
+            await setDoc(docRef, data);
+          }
+        } catch (errFirestore) {
+          console.warn("Import local OK mais sync Firestore impossible (probablement pas connecté) :", errFirestore);
+        }
+
+        alert("Importation réussie ✅");
+
+      } catch (err) {
+        console.error("Erreur d'import JSON :", err);
+        alert("Impossible de lire ce fichier. Vérifie que c'est bien l'export HBTRK.");
+      } finally {
+        // 7. Reset de l'input pour pouvoir réimporter le même fichier sans recharger la page
+        fileInput.value = '';
+      }
+    });
+
+
     const menuExport  = document.getElementById('menuExport');
     const menuLogout  = document.getElementById('menuLogout');
     const menuInstall = document.getElementById('menuInstall');
@@ -302,27 +455,47 @@
     const monthNameShort = (m)=> ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'][m];
     const monthNameLong = (m)=> ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'][m];
 
-    const isHabitActiveOn = (h, dateKey)=>{ 
-      const d = parseDateKey(dateKey); 
-      const start = new Date(h.startDate+'T00:00:00'); 
-      if(d < start) return false; 
-      if(h.deletedAt && d >= new Date(h.deletedAt+'T00:00:00')) return false;
-      
-      // Vérifier la fréquence
-      const freq = h.frequency || 'daily';
-      if(freq === 'daily') return true;
-      if(freq === 'weekly') {
-        // Hebdomadaire: actif seulement le lundi (jour 1)
-        const day = d.getDay();
-        return day === 1 || (day === 0 && d.getDay() === 0); // lundi ou dimanche si on considère
-        return (d.getDay() + 6) % 7 === 0; // lundi
+    const isHabitActiveOn = (h, dateKey) => {
+      const d = parseDateKey(dateKey);
+      const start = parseDateKey(h.startDate);
+      if (d < start) return false;
+      if (h.deletedAt && d >= parseDateKey(h.deletedAt)) return false;
+
+      // weekly
+      if (h.mode === "weekly") {
+        if (!Array.isArray(h.daysOfWeek)) return false;
+        const dow = d.getDay(); // 0=dimanche ... 6=samedi
+        return h.daysOfWeek.includes(dow);
       }
-      if(freq === 'monthly') {
-        // Mensuelle: actif seulement le 1er du mois
+
+      // interval
+      if (h.mode === "interval") {
+        if (typeof h.everyXDays !== "number" || h.everyXDays < 1) return false;
+        const diffDays = Math.floor((d - start) / (1000 * 60 * 60 * 24));
+        return diffDays >= 0 && diffDays % h.everyXDays === 0;
+      }
+
+      // monthly
+      if (h.mode === "monthly") {
+        if (typeof h.dayOfMonth !== "number") return false;
+        const dayNum = d.getDate(); // 1..31
+        return dayNum === h.dayOfMonth;
+      }
+
+      // fallback: si ancien format "frequency" existe encore dans des anciennes données
+      if (h.frequency === 'daily') return true;
+      if (h.frequency === 'weekly') {
+        // compat très minimaliste : lundi uniquement
+        const dow = d.getDay();
+        return dow === 1;
+      }
+      if (h.frequency === 'monthly') {
         return d.getDate() === 1;
       }
-      return true;
+
+      return false;
     };
+
 
     const getCompletionRate = (dateKey)=>{ const dayData = data.completions[dateKey] || {}; const activeHabits = data.habits.filter(h=>isHabitActiveOn(h,dateKey)); if(activeHabits.length===0) return 0; const completed = activeHabits.filter(h=>dayData[h.name]).length; return completed / activeHabits.length; };
 
@@ -364,41 +537,62 @@
 
     function periodEnd(h){ return h.deletedAt ? toDate(h.deletedAt) : null; }
 
-    function addHabitSmart(name, startDate, frequency){
-      const same = data.habits
-        .filter(h => h.name === name)
-        .sort((a,b) => a.startDate.localeCompare(b.startDate));
+  function addHabitSmart(habitObj){
+    const { name, startDate } = habitObj;
 
-      for (const h of same){
-        const A = h.startDate;
-        const B = h.deletedAt || '9999-12-31';
+    // même logique "anti doublon / merge" que ta version actuelle
+    const same = data.habits
+      .filter(h => h.name === name)
+      .sort((a,b) => a.startDate.localeCompare(b.startDate));
 
-        if (startDate >= A && startDate < B){
-          if (startDate < A) h.startDate = startDate;
-          delete h.deletedAt;
-          h.frequency = frequency;
-          return { action: 'merged', target: h };
-        }
+    for (const h of same){
+      const A = h.startDate;
+      const B = h.deletedAt || '9999-12-31';
 
-        if (startDate <= B){
-          if (startDate < A) h.startDate = startDate;
-          delete h.deletedAt;
-          h.frequency = frequency;
-          return { action: 'merged', target: h };
-        }
+      if (startDate >= A && startDate < B){
+        if (startDate < A) h.startDate = startDate;
+        delete h.deletedAt;
+
+        // on écrase les infos de fréquence avec la nouvelle config
+        h.mode = habitObj.mode;
+        h.daysOfWeek = habitObj.daysOfWeek || null;
+        h.everyXDays = habitObj.everyXDays ?? null;
+        h.dayOfMonth = habitObj.dayOfMonth ?? null;
+        return { action: 'merged', target: h };
       }
 
-      if (same.length){
-        const everyEndedBeforeStart = same.every(h => !!h.deletedAt && h.deletedAt <= startDate);
-        if (!everyEndedBeforeStart){
-          return { action: 'ignored' };
-        }
-      }
+      if (startDate <= B){
+        if (startDate < A) h.startDate = startDate;
+        delete h.deletedAt;
 
-      const created = { name, startDate, frequency };
-      data.habits.push(created);
-      return { action: 'added', target: created };
+        h.mode = habitObj.mode;
+        h.daysOfWeek = habitObj.daysOfWeek || null;
+        h.everyXDays = habitObj.everyXDays ?? null;
+        h.dayOfMonth = habitObj.dayOfMonth ?? null;
+        return { action: 'merged', target: h };
+      }
     }
+
+    if (same.length){
+      const everyEndedBeforeStart = same.every(h => !!h.deletedAt && h.deletedAt <= startDate);
+      if (!everyEndedBeforeStart){
+        return { action: 'ignored' };
+      }
+    }
+
+    // nouvelle création
+    const created = {
+      name: habitObj.name,
+      startDate: habitObj.startDate,
+      mode: habitObj.mode,
+      daysOfWeek: habitObj.daysOfWeek || null,
+      everyXDays: habitObj.everyXDays ?? null,
+      dayOfMonth: habitObj.dayOfMonth ?? null
+    };
+
+    data.habits.push(created);
+    return { action: 'added', target: created };
+  }
 
     let navIsOpen = false;           // vrai si le menu est censé être ouvert
     let navJustOpenedAt = 0;         // timestamp à l'ouverture, pour éviter les fermetures immédiates
@@ -608,33 +802,87 @@
       else { yEl.scrollIntoView({block:'center', behavior:'smooth'}); }
     };
 
-    function openDayPanel(dateKey){
-      focusedDateKey = dateKey;
-      panelDate.textContent = new Date(dateKey).toLocaleDateString('fr-FR',{weekday:'short', day:'numeric', month:'short', year:'numeric'});
-      panelDateLong.textContent = dateKey;
-      populateHabits(dateKey, habitsList, false);
+// ÉTAT D'OUVERTURE POUR LE PANEL JOUR (équivalent navIsOpen)
+let dayIsOpen = false;
+let dayJustOpenedAt = 0; // protection contre les "taps fantômes"
 
-      dayPanel.classList.remove('hidden');
-      dayOverlay.classList.remove('hidden');
-      dayPanel.style.visibility = 'visible';
-      requestAnimationFrame(()=>{ dayPanel.style.transform = 'translateX(0)'; });
+function openDayPanel(dateKey) {
+  dayIsOpen = true;
+  dayJustOpenedAt = Date.now();
+
+  focusedDateKey = dateKey;
+
+  // Mettre à jour l'en-tête (date courte + ISO)
+  panelDate.textContent = new Date(dateKey).toLocaleDateString(
+    'fr-FR',
+    { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }
+  );
+  panelDateLong.textContent = dateKey;
+
+  // Remplir la liste des habitudes du jour
+  populateHabits(dateKey, habitsList, false);
+
+  // Rendre visibles immédiatement le panel et l'overlay
+  dayPanel.classList.remove('hidden');
+  dayOverlay.classList.remove('hidden');
+
+  dayPanel.style.visibility = 'visible';
+
+  // Lancer l'animation slide-in au frame suivant
+  requestAnimationFrame(() => {
+    dayPanel.style.transform = 'translateX(0)';
+  });
+}
+
+function closeDayPanel() {
+  // Si déjà fermé logiquement, rien à faire
+  if (!dayIsOpen) return;
+
+  dayIsOpen = false;
+
+  // Lancer le slide-out
+  dayPanel.style.transform = 'translateX(calc(100% + 1rem))';
+  dayOverlay.classList.add('hidden');
+
+  // Quand la transition est finie, on HIDE vraiment
+  const onEnd = () => {
+    dayPanel.removeEventListener('transitionend', onEnd);
+
+    // si entre-temps l'utilisateur l'a rouvert (tap rapide),
+    // on NE recache PAS
+    if (!dayIsOpen) {
+      dayPanel.classList.add('hidden');
+      dayPanel.style.visibility = 'hidden';
     }
+  };
 
-    function closeDayPanel(){
-      dayPanel.style.transform = 'translateX(calc(100% + 1rem))';
-      dayOverlay.classList.add('hidden');
+  dayPanel.addEventListener('transitionend', onEnd, { once: true });
+}
 
-      const onEnd = () => {
-        dayPanel.removeEventListener('transitionend', onEnd);
-        dayPanel.classList.add('hidden');
-        dayPanel.style.visibility = 'hidden';
-      };
-      dayPanel.addEventListener('transitionend', onEnd, { once:true });
-    }
+// Bouton "Fermer" (en haut du panneau jour)
+document.getElementById('closePanel').onclick = () => {
+  closeDayPanel();
+};
 
-    document.getElementById('closePanel').onclick=closeDayPanel;
-    dayOverlay.addEventListener('click', closeDayPanel);
-    document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeDayPanel(); });
+// Clique sur overlay pour fermer
+dayOverlay.addEventListener('click', (e) => {
+  // On ferme UNIQUEMENT si le panneau est ouvert
+  // ET que l'utilisateur a vraiment cliqué l'overlay
+  // ET qu'on n'est pas dans les 200ms post-ouverture (tap fantôme)
+  if (!dayIsOpen) return;
+  if (Date.now() - dayJustOpenedAt < 200) return;
+  if (e.target === dayOverlay) {
+    closeDayPanel();
+  }
+});
+
+// Escape pour fermer
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && dayIsOpen) {
+    closeDayPanel();
+  }
+});
+
 
     const clamp3 = (n)=>{ const s = String(Math.max(0, n|0)); return s.length>3 ? s.slice(0,3) : s; };
     const makeStreakBadge=(cur,best,isBestNow)=>{ const span=document.createElement('span'); span.className='streak-badge'+(isBestNow && cur>0 ? ' streak-badge--best':'' ); span.textContent=`${clamp3(cur)}/${clamp3(best)}`; span.title='Série actuelle / meilleur record'; return span; };
@@ -888,29 +1136,157 @@
     function goHome(){ homePage.classList.remove('hidden'); dayPage.classList.add('hidden'); window.location.hash='#/home'; focusCurrentMonth(); }
 
     const modalAddHabit=document.getElementById('modalAddHabit');
-    document.getElementById('addHabitBtn').onclick=()=>{ 
-      document.getElementById('habitNameInput').value=''; 
-      document.getElementById('habitStartInput').value=new Date().toISOString().slice(0,10); 
-      document.getElementById('habitFrequencyInput').value='daily';
-      modalAddHabit.classList.remove('hidden'); 
-      modalAddHabit.classList.add('flex'); 
+    document.getElementById('addHabitBtn').onclick = ()=>{
+      // reset champs de base
+      document.getElementById('habitNameInput').value = '';
+      document.getElementById('habitStartInput').value = new Date().toISOString().slice(0,10);
+
+      // weekly par défaut
+      document.getElementById('freqWeeklyRadio').checked   = true;
+      document.getElementById('freqIntervalRadio').checked = false;
+      document.getElementById('freqMonthlyRadio').checked  = false;
+
+      // tous les jours actifs en vert
+      Array.from(document.querySelectorAll('#weeklyDaysRow .dayToggle')).forEach(btn=>{
+        btn.classList.add('bg-[rgb(0,200,75)]','text-black','border-green-400/40');
+        btn.classList.remove('bg-white/10','text-white/80','border-white/10');
+      });
+
+      // valeurs défaut interval/monthly
+      document.getElementById('everyXDaysInput').value = "3";
+      document.getElementById('dayOfMonthInput').value = "1";
+
+      modalAddHabit.classList.remove('hidden');
+      modalAddHabit.classList.add('flex');
     };
+
+    // Exclusivité visuelle des modes
+    function activateMode(mode){
+      const rW = document.getElementById('freqWeeklyRadio');
+      const rI = document.getElementById('freqIntervalRadio');
+      const rM = document.getElementById('freqMonthlyRadio');
+
+      rW.checked = (mode === 'weekly');
+      rI.checked = (mode === 'interval');
+      rM.checked = (mode === 'monthly');
+    }
+
+    // click sur le bloc weekly
+    document.getElementById('freqWeeklyBlock').addEventListener('click', (e)=>{
+      // si on clique sur un bouton jour, on reste en weekly
+      activateMode('weekly');
+      e.stopPropagation();
+    });
+
+    // click sur le bloc interval
+    document.getElementById('freqIntervalBlock').addEventListener('click', (e)=>{
+      activateMode('interval');
+      e.stopPropagation();
+    });
+
+    // click sur le bloc monthly
+    document.getElementById('freqMonthlyBlock').addEventListener('click', (e)=>{
+      activateMode('monthly');
+      e.stopPropagation();
+    });
+
+    // toggle des jours de la semaine
+    document.querySelectorAll('#weeklyDaysRow .dayToggle').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        // forcer le mode weekly (l'utilisateur a touché aux jours)
+        activateMode('weekly');
+
+        const active = btn.classList.contains('bg-[rgb(0,200,75)]');
+        if (active){
+          // passe en gris --> inactif
+          btn.classList.remove('bg-[rgb(0,200,75)]','text-black','border-green-400/40');
+          btn.classList.add('bg-white/10','text-white/80','border-white/10');
+        } else {
+          // passe en vert --> actif
+          btn.classList.add('bg-[rgb(0,200,75)]','text-black','border-green-400/40');
+          btn.classList.remove('bg-white/10','text-white/80','border-white/10');
+        }
+        e.stopPropagation();
+      });
+    });
+
+    // si l'utilisateur tape dans le champ "tous les X jours", on force interval
+    document.getElementById('everyXDaysInput').addEventListener('input', ()=>{
+      activateMode('interval');
+    });
+
+    // si l'utilisateur tape dans le champ "le X du mois", on force monthly
+    document.getElementById('dayOfMonthInput').addEventListener('input', ()=>{
+      activateMode('monthly');
+    });
+
+
     document.getElementById('cancelAddHabit').onclick=()=>{ modalAddHabit.classList.add('hidden'); modalAddHabit.classList.remove('flex'); };
     document.getElementById('confirmAddHabit').onclick = async ()=>{
       const name  = document.getElementById('habitNameInput').value.trim();
       const start = document.getElementById('habitStartInput').value;
-      const frequency = document.getElementById('habitFrequencyInput').value;
-      if(!name || !start){ alert('Nom et date requis'); return; }
 
-      const res = addHabitSmart(name, start, frequency);
+      if (!name || !start) {
+        alert('Nom et date requis');
+        return;
+      }
+
+      // Déterminer quel mode est actif
+      const modeWeekly   = document.getElementById('freqWeeklyRadio').checked;
+      const modeInterval = document.getElementById('freqIntervalRadio').checked;
+      const modeMonthly  = document.getElementById('freqMonthlyRadio').checked;
+
+      let habitPayload = {
+        name,
+        startDate: start,
+        mode: null,
+        daysOfWeek: null,
+        everyXDays: null,
+        dayOfMonth: null
+      };
+
+      if (modeWeekly) {
+        habitPayload.mode = "weekly";
+        const dayBtns = Array.from(document.querySelectorAll('#weeklyDaysRow .dayToggle'));
+        habitPayload.daysOfWeek = dayBtns
+          .filter(btn => btn.classList.contains('bg-[rgb(0,200,75)]')) // vert = actif
+          .map(btn => parseInt(btn.getAttribute('data-dow'), 10));
+        if (habitPayload.daysOfWeek.length === 0) {
+          alert("Choisis au moins un jour pour l'option hebdomadaire.");
+          return;
+        }
+      } else if (modeInterval) {
+        habitPayload.mode = "interval";
+        const val = parseInt(document.getElementById('everyXDaysInput').value, 10);
+        if (isNaN(val) || val < 1) {
+          alert("Nombre de jours invalide.");
+          return;
+        }
+        habitPayload.everyXDays = val;
+      } else if (modeMonthly) {
+        habitPayload.mode = "monthly";
+        const domVal = parseInt(document.getElementById('dayOfMonthInput').value, 10);
+        if (isNaN(domVal) || domVal < 1 || domVal > 31) {
+          alert("Jour du mois invalide (1-31).");
+          return;
+        }
+        habitPayload.dayOfMonth = domVal;
+      } else {
+        // Si rien n'est coché, on force weekly par défaut avec tous les jours
+        habitPayload.mode = "weekly";
+        habitPayload.daysOfWeek = [1,2,3,4,5,6,0];
+      }
+
+      const res = addHabitSmart(habitPayload);
 
       clearHabitCaches(name);
       await persistDebounced(0);
 
-      modalAddHabit.classList.add('hidden'); 
+      modalAddHabit.classList.add('hidden');
       modalAddHabit.classList.remove('flex');
       renderYears();
     };
+
 
     let lastIsSmall = null;
     let resizeTimer = null;
